@@ -116,7 +116,7 @@ function drawParticles(ctx, pass) { // pass 0: normal-blend (smoke, shards); pas
       case PK.SPARK: { const L = .028 * sz * f; ctx.moveTo(x, y); ctx.lineTo(x - P.vx[i] * L, y - P.vy[i] * L); break; }
       case PK.DOT: { const r = sz * (.3 + f * .7); ctx.rect(x - r, y - r, r * 2, r * 2); break; }
       case PK.SHARD: { const r = sz * (.4 + f * .6), a = P.rot[i]; ctx.moveTo(x + cos(a) * r, y + sin(a) * r); ctx.lineTo(x + cos(a + 2.4) * r * .7, y + sin(a + 2.4) * r * .7); ctx.lineTo(x + cos(a + 3.9) * r * .5, y + sin(a + 3.9) * r * .5); ctx.closePath(); break; }
-      case PK.GLOW: { const r = sz * (.5 + f * .5); ctx.globalAlpha = f * .8; ctx.drawImage(lightSprite(COLS[P.col[i]]), x - r, y - r, r * 2, r * 2); ctx.globalAlpha = 1; break; }
+      case PK.GLOW: { const r = sz * (.5 + f * .5); ctx.globalAlpha = f * .55; ctx.drawImage(lightSprite(COLS[P.col[i]]), x - r, y - r, r * 2, r * 2); ctx.globalAlpha = 1; break; }
       case PK.SMOKE: { const r = sz * (1.6 - f * .6); ctx.globalAlpha = f * .45; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); ctx.globalAlpha = 1; break; }
       case PK.RING: { const r = P.vx[i] * (1 - f * f * .6 + .1); ctx.globalAlpha = f; ctx.lineWidth = P.size[i] * f + .5; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; break; }
     }
@@ -367,6 +367,7 @@ function render(alpha, dt, wdt) {
     if (G.settings.lighting) { for (const l of room.lights) light(l.x, l.y, l.r, l.c, l.a * (.85 + .15 * sin(G.rt * 3 + l.x))); queueLights(alpha);
       for (let i = FLASHES.length - 1; i >= 0; i--) { const f = FLASHES[i]; f.t -= dt; if (f.t <= 0) { FLASHES.splice(i, 1); continue; } light(f.x, f.y, f.r, f.col, f.a * f.t / f.d); }
       renderLighting(ctx, room.amb || bio.amb); } else { LQ.n = 0; FLASHES.length = 0; }
+    drawActors(ctx, alpha);
     // emissive layer
     camXf(); ctx.globalCompositeOperation = 'lighter'; drawTele(ctx); camXf(); drawParticles(ctx, 1); drawBeams(ctx, wdt); drawEmissive(ctx, alpha);
     ctx.globalCompositeOperation = 'source-over'; drawEnemyBullets(ctx, alpha); drawWorldText(ctx, wdt);

@@ -5,7 +5,7 @@ const $ui = document.getElementById('ui');
 const UI = {
   cb: {}, next: {}, back: null, screen: '', hintEl: null, n: 0,
   // callbacks are staged while a template is built, then swapped in when it is shown
-  show(html, back = null, screen = '') { this.cb = this.next; this.next = {}; $ui.innerHTML = html; this.back = back; this.screen = screen; this.focusFirst(); },
+  show(html, back = null, screen = '') { if (this.hintEl) this.hint(''); this.cb = this.next; this.next = {}; $ui.innerHTML = html; this.back = back; this.screen = screen; this.focusFirst(); },
   clear() { $ui.innerHTML = ''; this.cb = {}; this.next = {}; this.back = null; this.screen = ''; },
   a(fn) { const k = 'a' + (this.n++); this.next[k] = fn; return `data-a="${k}"`; },   // register a click action
   btn(label, fn, cls = '', extra = '') { return `<button class="btn ${cls}" ${this.a(fn)} ${extra}>${label}</button>`; },
@@ -48,8 +48,8 @@ function toast(t1, t2 = '', big = false) { // stacked in a flex column so simult
 UI.bossIntro = (n, t) => { const d = document.createElement('div'); d.className = 'boss-card';
   d.innerHTML = `<div class="t1" style="font-size:46px;letter-spacing:.2em;text-shadow:0 0 20px #ff2bd6,0 0 50px #ff2bd6">${n}</div><div class="t2" style="font-size:15px;color:#fff">${t}</div>`; document.body.appendChild(d); setTimeout(() => d.remove(), 2700); };
 // tooltip near the bottom (shop pedestals etc.)
-UI.hint = html => { if (!UI.hintEl) { UI.hintEl = document.createElement('div'); UI.hintEl.style.cssText = 'position:fixed;left:50%;bottom:120px;transform:translateX(-50%);pointer-events:none;z-index:5'; document.body.appendChild(UI.hintEl); }
-  if (UI.hintEl._h !== html) { UI.hintEl._h = html; UI.hintEl.innerHTML = html; } };
+UI.hint = html => { if (!UI.hintEl) { UI.hintEl = document.createElement('div'); UI.hintEl.className = 'hint'; UI.hintEl.style.cssText = 'position:fixed;right:24px;top:50%;transform:translateY(-50%);pointer-events:none;z-index:5'; document.body.appendChild(UI.hintEl); }
+  if (UI.screen && html) html = ''; if (UI.hintEl._h !== html) { UI.hintEl._h = html; UI.hintEl.innerHTML = html; } };
 
 // ---------------------------------------------------------------------------- card rendering
 function famTag(f) { return `<span class="tag" style="color:${FAM[f].c}">${FAM[f].n}</span>`; }
@@ -291,9 +291,9 @@ function mapScreen() {
   let lines = ''; for (const n of map.nodes) for (const id of n.next) { const a = pos(n), b = pos(map.byId[id]); const on = (n.done || n === cur) && avail.includes(id); lines += `<line x1="${a.x}%" y1="${a.y}%" x2="${b.x}%" y2="${b.y}%" stroke="${on ? '#ffffff' : n.done ? '#7ff6ff55' : '#ffffff22'}" stroke-width="${on ? 2.5 : 1.5}" stroke-dasharray="${on ? '' : '4 5'}"/>`; }
   const nodes = map.nodes.map(n => { const p = pos(n), av = avail.includes(n.id); return `<div class="node ${av ? 'av' : ''} ${n.done ? 'done' : ''} ${n === cur ? 'cur' : ''}" style="left:${p.x}%;top:${p.y}%;color:${ROOM_COL[n.type]};border-color:${av ? ROOM_COL[n.type] : ''}" title="${ROOM_NAME[n.type]}" ${av ? UI.a(() => enterNode(n)) : ''}>${ROOM_ICON[n.type]}</div>`; }).join('');
   const bio = T.BIO[run.biome];
-  UI.show(`<div class="panel clear" style="text-align:center"><h2 style="color:${bio.edge};text-shadow:0 0 12px ${bio.edge}">${bio.n}</h2><p class="dim">Sector ${run.biome + 1} of 4 · choose your path</p>
+  UI.show(`<div class="backdrop"><div class="panel clear" style="text-align:center"><h2 style="color:${bio.edge};text-shadow:0 0 12px ${bio.edge}">${bio.n}</h2><p class="dim">Sector ${run.biome + 1} of 4 · choose your path</p>
     <div class="map"><svg>${lines}</svg>${nodes}</div><div class="legend">${Object.keys(ROOM_ICON).map(k => `<span style="color:${ROOM_COL[k]}">${ROOM_ICON[k]} ${ROOM_NAME[k]}</span>`).join('')}</div>
-    <div class="row" style="justify-content:center;margin-top:12px">${UI.btn('Build [Tab]', () => openBuild(true, mapScreen), 'sm')}<span class="gold">◆ ${run.gold}</span><span>HP ${ceil(G.player.hp)}/${G.player.maxHp}</span></div></div>`, null, 'map');
+    <div class="row" style="justify-content:center;margin-top:12px">${UI.btn('Build [Tab]', () => openBuild(true, mapScreen), 'sm')}<span class="gold">◆ ${run.gold}</span><span>HP ${ceil(G.player.hp)}/${G.player.maxHp}</span></div></div></div>`, null, 'map');
 }
 // reward cards (after rooms)
 function rewardScreen(opts) {
@@ -334,7 +334,7 @@ function summaryScreen(win, shards, newAch) {
   const run = G.run, s = run.stats; G.state = 'summary'; document.body.classList.remove('play');
   const recap = run.recap.slice(-6).reverse().map(r => `<div class="row" style="gap:8px;font-size:12px"><span class="bad" style="min-width:42px">-${r.dmg}</span><span>${r.src}</span><span class="dim" style="margin-left:auto">${fmtTime(r.t)} · ${r.hp} HP left</span></div>`).join('');
   const ups = [...new Set(run.upgrades)].map(id => `<span class="tag" style="color:${FAM[UPG[id].fam].c}">${UPG[id].n}${run.upgrades.filter(x => x === id).length > 1 ? ' ×' + run.upgrades.filter(x => x === id).length : ''}</span>`).join(' ');
-  UI.show(`<div class="panel wide"><h1 style="font-size:36px;${win ? '' : 'text-shadow:0 0 14px #ff2a4a,0 0 30px #ff2a4a'}">${win ? 'VICTORY' : 'RUN OVER'}</h1>
+  UI.show(`<div class="backdrop"><div class="panel wide"><h1 style="font-size:36px;${win ? '' : 'text-shadow:0 0 14px #ff2a4a,0 0 30px #ff2a4a'}">${win ? 'VICTORY' : 'RUN OVER'}</h1>
     <p class="dim">${T.CH[run.char].n} · ${T.BIO[run.biome].n} · Seed ${run.seed}${run.heat ? ' · Heat ' + run.heat : ''}</p>
     <div class="row" style="align-items:flex-start;gap:28px;margin-top:12px"><div class="kv" style="min-width:230px"><b>Time</b><span>${fmtTime(s.time)}</span><b>Rooms</b><span>${s.rooms}</span><b>Kills</b><span>${s.kills} (${s.elites} elite)</span>
       <b>Damage dealt</b><span>${fmt(s.dmgDealt)}</span><b>Damage taken</b><span>${fmt(s.dmgTaken)}</span><b>Perfect dodges</b><span>${s.grazes}</span><b>Best combo</b><span>${s.maxCombo}</span><b>Gold earned</b><span>${s.gold}</span><b>Synergies</b><span>${run.synergies.length}</span></div>
@@ -342,5 +342,5 @@ function summaryScreen(win, shards, newAch) {
       <h3 style="margin-top:10px">Build</h3><div class="tags" style="display:flex;gap:5px;flex-wrap:wrap">${ups || '<span class="dim">none</span>'}</div>
       ${run.synergies.length ? `<h3 style="margin-top:10px">Synergies</h3><p class="gold">${run.synergies.map(id => SYN[id].n).join(' · ')}</p>` : ''}
       <h3 style="margin-top:10px">Shards earned</h3><p class="gold" style="font-size:20px">◆ +${shards}</p>${newAch.length ? `<p class="good">New: ${newAch.join(', ')}</p>` : ''}</div></div>
-    <div class="row" style="margin-top:18px">${UI.btn('Run Again', () => charSelect(), 'pri')}${UI.btn('Same Seed', () => startRun({ char: run.char, seed: run.seed, heat: run.heat, daily: run.daily }))}${UI.btn('Title', titleScreen)}</div></div>`, titleScreen, 'summary');
+    <div class="row" style="margin-top:18px">${UI.btn('Run Again', () => charSelect(), 'pri')}${UI.btn('Same Seed', () => startRun({ char: run.char, seed: run.seed, heat: run.heat, daily: run.daily }))}${UI.btn('Title', titleScreen)}</div></div></div>`, titleScreen, 'summary');
 }

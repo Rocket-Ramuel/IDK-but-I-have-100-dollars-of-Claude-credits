@@ -64,7 +64,9 @@ p{margin:6px 0;line-height:1.45}
 .tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
 .list{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
 .item{border:1px solid rgba(255,255,255,.12);border-radius:4px;padding:8px 10px;font-size:12px;background:rgba(255,255,255,.03)}
-.item b{display:block;color:#fff;font-size:13px;margin-bottom:3px}
+.item>b:first-child{display:block;color:#fff;font-size:13px;margin-bottom:3px}.item b{color:#fff}
+.backdrop{position:fixed;inset:0;background:radial-gradient(ellipse at center,rgba(14,8,30,.9),rgba(3,2,8,.97));display:flex;align-items:center;justify-content:center;animation:fade .3s}
+.hint .card{width:260px;min-height:0;animation:none;cursor:default}
 .item.lock{opacity:.45}
 .item.unk{filter:blur(.4px);opacity:.35}
 input[type=range]{width:180px;accent-color:var(--c2)}
@@ -964,7 +966,7 @@ function drawParticles(ctx, pass) { // pass 0: normal-blend (smoke, shards); pas
       case PK.SPARK: { const L = .028 * sz * f; ctx.moveTo(x, y); ctx.lineTo(x - P.vx[i] * L, y - P.vy[i] * L); break; }
       case PK.DOT: { const r = sz * (.3 + f * .7); ctx.rect(x - r, y - r, r * 2, r * 2); break; }
       case PK.SHARD: { const r = sz * (.4 + f * .6), a = P.rot[i]; ctx.moveTo(x + cos(a) * r, y + sin(a) * r); ctx.lineTo(x + cos(a + 2.4) * r * .7, y + sin(a + 2.4) * r * .7); ctx.lineTo(x + cos(a + 3.9) * r * .5, y + sin(a + 3.9) * r * .5); ctx.closePath(); break; }
-      case PK.GLOW: { const r = sz * (.5 + f * .5); ctx.globalAlpha = f * .8; ctx.drawImage(lightSprite(COLS[P.col[i]]), x - r, y - r, r * 2, r * 2); ctx.globalAlpha = 1; break; }
+      case PK.GLOW: { const r = sz * (.5 + f * .5); ctx.globalAlpha = f * .55; ctx.drawImage(lightSprite(COLS[P.col[i]]), x - r, y - r, r * 2, r * 2); ctx.globalAlpha = 1; break; }
       case PK.SMOKE: { const r = sz * (1.6 - f * .6); ctx.globalAlpha = f * .45; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); ctx.globalAlpha = 1; break; }
       case PK.RING: { const r = P.vx[i] * (1 - f * f * .6 + .1); ctx.globalAlpha = f; ctx.lineWidth = P.size[i] * f + .5; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; break; }
     }
@@ -1215,6 +1217,7 @@ function render(alpha, dt, wdt) {
     if (G.settings.lighting) { for (const l of room.lights) light(l.x, l.y, l.r, l.c, l.a * (.85 + .15 * sin(G.rt * 3 + l.x))); queueLights(alpha);
       for (let i = FLASHES.length - 1; i >= 0; i--) { const f = FLASHES[i]; f.t -= dt; if (f.t <= 0) { FLASHES.splice(i, 1); continue; } light(f.x, f.y, f.r, f.col, f.a * f.t / f.d); }
       renderLighting(ctx, room.amb || bio.amb); } else { LQ.n = 0; FLASHES.length = 0; }
+    drawActors(ctx, alpha);
     // emissive layer
     camXf(); ctx.globalCompositeOperation = 'lighter'; drawTele(ctx); camXf(); drawParticles(ctx, 1); drawBeams(ctx, wdt); drawEmissive(ctx, alpha);
     ctx.globalCompositeOperation = 'source-over'; drawEnemyBullets(ctx, alpha); drawWorldText(ctx, wdt);
@@ -1276,7 +1279,10 @@ function drawWorld(ctx, alpha, wdt) {
   for (const pr of G.props) drawProp(ctx, pr);
   // mortar shell shadows
   camXf(); ctx.fillStyle = 'rgba(0,0,0,.4)'; for (const m of MORTARS) { const f = m.t / m.d; ctx.beginPath(); ctx.ellipse(lerp(m.x0, m.x1, f), lerp(m.y0, m.y1, f), 5, 2.5, 0, 0, TAU); ctx.fill(); }
-  // enemies
+}
+// actors are drawn after the lightmap so combatants stay crisp while the environment stays moody
+function drawActors(ctx, alpha) {
+  const p = G.player; camXf();
   for (const e of G.enemies) drawEnemy(ctx, e, alpha);
   if (G.corpse) drawCorpse(ctx, G.corpse);
   // allies
@@ -1429,7 +1435,7 @@ function drawEmissive(ctx, alpha) {
   if (p && !p.dead) { const w = curWeapon(p);
     if (w.beam) { const x = p.x + cos(p.ang) * 14, y = p.y + sin(p.ang) * 14, b = w.beam; ctx.lineCap = 'round'; ctx.strokeStyle = pal[0]; ctx.lineWidth = b.w * (1 + .2 * sin(t * 60)); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(b.x2, b.y2); ctx.stroke();
       ctx.strokeStyle = '#ffffff'; ctx.lineWidth = b.w * .4; ctx.stroke(); ctx.lineCap = 'butt'; }
-    if (w.def.k === 'orbit') { for (let i = 0; i < w.ammo; i++) { const a = t * w.def.orbitSpd + i / max(1, w.mag) * TAU, bx = p.x + cos(a) * w.def.orbitR, by = p.y + sin(a) * w.def.orbitR; xf(ctx, bx, by, a * 2, 7, 7); ctx.fillStyle = pal[0]; ctx.fill(SH.tri); } camXf(); }
+    if (w.def.k === 'orbit') { for (let i = 0; i < w.ammo; i++) { const a = G.time * w.def.orbitSpd + i / max(1, w.mag) * TAU, bx = p.x + cos(a) * w.def.orbitR, by = p.y + sin(a) * w.def.orbitR; xf(ctx, bx, by, a * 2, 7, 7); ctx.fillStyle = pal[0]; ctx.fill(SH.tri); } camXf(); }
     if (p.muzzle > 0) { const r = 22; ctx.globalAlpha = p.muzzle / .05; ctx.drawImage(lightSprite('#ffe8a0'), p.x + cos(p.ang) * 18 - r, p.y + sin(p.ang) * 18 - r, r * 2, r * 2); ctx.globalAlpha = 1; }
     if (w.def.k === 'bow' && w.charge > 0) { ctx.globalAlpha = .4 + w.charge * .6; ctx.strokeStyle = w.full ? '#fff27a' : pal[0]; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(p.x, p.y, 20 - w.charge * 6, p.ang - 1, p.ang + 1); ctx.stroke(); ctx.globalAlpha = 1; }
     if (p.buffs.aegis > 0) { ctx.strokeStyle = '#ffe23a'; ctx.lineWidth = 2; ctx.globalAlpha = .6; ctx.beginPath(); ctx.arc(p.x, p.y, 40, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; }
@@ -2097,7 +2103,7 @@ function explode(x, y, r, dmg, team, src, small = false) {
   A.play(big ? 'explode' : 'explodeS', x, y, small ? .6 : 1); if (big) A.duck(.45, .5);
   trauma(small ? .12 : big ? .5 : .3); if (big) hitstop(.035); flashLight(x, y, r * 3.2, '#ff9a4a', .22, 1.2); if (big) aberrate(T.fx.abberation);
   burst(x, y, small ? 10 : 24, C_FIRE2, r * 6, .4, 4); burst(x, y, small ? 6 : 14, C_FIRE, r * 4, .55, 5, PK.DOT); burst(x, y, small ? 3 : 8, C_SMOKE, r * 1.5, 1.1, r * .3, PK.SMOKE, 2);
-  ring(x, y, r, C_FIRE2, .3, 5); emit(PK.GLOW, x, y, 0, 0, .25, r * 1.6, C_FIRE2, 0); decal('scorch', x, y, r * .9, null, .7);
+  ring(x, y, r, C_FIRE2, .3, 5); emit(PK.GLOW, x, y, 0, 0, .2, r * 1.15, C_FIRE2, 0); decal('scorch', x, y, r * .9, null, .7);
   if (team !== 1) {
     forEnemiesNear(x, y, r, e => { const d = hypot(e.x - x, e.y - y), f = 1 - .5 * sat(d / r), a = atan2(e.y - y, e.x - x);
       hurtEnemy(e, dmg * f, DMG.EXPL, false, cos(a) * 300, sin(a) * 300); if (B.expStun && team === 0) e.stunT = max(e.stunT, B.expStun); if (B.syn.avalanche) addChill(e, 60); });
@@ -2212,7 +2218,7 @@ function bulletHitsEnemy(b, e) {
   applyOnHit(e, b);
   if (B.syn.detonator && crit) explode(b.x, b.y, 45 * expRad(), b.dmg * .5 * expMul(), 0, 'Detonator', true);
   if (B.split && !b.isFrag || (b.isFrag && b.splitDepth > 0)) splitBullet(b, B.split || 1, 0);
-  if (b.explode) { explode(b.x, b.y, b.explode * (b.homing && B.syn.smartbombs ? 1.5 : 1), b.expDmg, 0, b.src, b.isFrag); if (!b.mine) return true; }
+  if (b.explode) { explode(b.x, b.y, b.explode * (b.homing && B.syn.smartbombs ? 1.5 : 1), b.expDmg, 0, b.src, b.isFrag); if (b.pierce <= 0) return true; }
   if (b.ebounce < B.enemyBounce && !b.summon) { b.ebounce++; const t = nearestOther(b, e, 300); if (t) { const s = hypot(b.vx, b.vy), na = atan2(t.y - b.y, t.x - b.x); b.vx = cos(na) * s; b.vy = sin(na) * s; return false; } }
   if (b.pierce > 0) {
     b.pierce--; b.pierced++; b.dmg *= 1 + B.pierceDmg; if (B.syn.drill) b.critBonus += .25;
@@ -2265,7 +2271,7 @@ function updateEnemyBullets(dt) {
 function reflectBullet(b) { const f = newBullet(0); f.x = f.px = b.x; f.y = f.py = b.y; f.vx = -b.vx * 1.4; f.vy = -b.vy * 1.4; f.dmg = 20 * (1 + B.dmg); f.r = 3; f.life = 1; f.src = 'Aegis'; f.col = 1; ring(b.x, b.y, 8, C_GOLD, .2); }
 function graze(p, b) {
   b.grazed = true; const run = G.run; run.stats.grazes++; if (run.stats.grazes === 50) unlockAch('graze50');
-  if (p.grazedThisDash) { run.ability += 0; return; } p.grazedThisDash = true;
+  if (p.grazedThisDash) return; p.grazedThisDash = true;
   A.play('graze', p.x, p.y); slowmo(T.player.grazeSlowScale, T.player.grazeSlow); wtext(p.x, p.y - 20, 'PERFECT', '#7ff6ff', 10, .7, -50);
   ring(p.x, p.y, 40, ci('#7ff6ff'), .35, 3); emit(PK.GLOW, p.x, p.y, 0, 0, .3, 50, ci('#7ff6ff'), 0);
   const w = curWeapon(p); if (w.def.mag < 99) w.ammo = min(w.mag, w.ammo + ceil(w.mag * (run.char === 'kestrel' ? 1 : T.player.grazeAmmo))); if (w.reloadT > 0 && run.char === 'kestrel') w.reloadT = 0;
@@ -2298,7 +2304,7 @@ function updatePickups(dt) {
 // ---- props: barrels, chests, shop items, interactables -----------------------------------------------------------------
 function addProp(kind, x, y, o = {}) { const pr = Object.assign({ kind, x, y, px: x, py: y, hp: T.room.barrelHp, dead: false, flash: 0, t: 0, r: 11 }, o); G.props.push(pr); return pr; }
 function updateProps(dt) {
-  const p = G.player;
+  const p = G.player; let hint = null;
   for (let i = G.props.length - 1; i >= 0; i--) {
     const pr = G.props[i]; pr.t += dt; pr.flash = max(0, pr.flash - dt);
     if (pr.kind === 'barrel') {
@@ -2308,8 +2314,9 @@ function updateProps(dt) {
       const d = hypot(p.x - pr.x, p.y - pr.y); if (d < p.r + pr.r && d > 0) { p.x = pr.x + (p.x - pr.x) / d * (p.r + pr.r); p.y = pr.y + (p.y - pr.y) / d * (p.r + pr.r); }
     }
     if (pr.dead) { G.props.splice(i, 1); continue; }
-    if (pr.interact) { pr.near = !p.dead && dist2(p.x, p.y, pr.x, pr.y) < 42 * 42; }
+    if (pr.interact) { pr.near = !p.dead && dist2(p.x, p.y, pr.x, pr.y) < 42 * 42; if (pr.near && pr.it && !pr.sold) hint = pr; }
   }
+  if (G.tick % 6 === 0) { const it = hint && hint.it; UI.hint(!it ? '' : it.kind === 'upg' ? cardHTML(it.u) : it.kind === 'weapon' ? weaponCard(it.id) : it.kind === 'active' ? activeCard(it.id) : ''); }
 }
 function interact(p) {
   let best = null, bd = 42 * 42; for (const pr of G.props) if (pr.interact && !pr.dead) { const d = dist2(p.x, p.y, pr.x, pr.y); if (d < bd) { bd = d; best = pr; } }
@@ -3075,6 +3082,7 @@ function updateWeapons(p, dt) {
     else if (w.charge > 0) { fireBow(p, w); w.charge = 0; w.full = false; w.cd = 1 / d.rate; A.loop('draw', false); }
     return;
   }
+  if (d.k === 'orbit') orbitBlades(p, w);
   if (d.id === 'minigun') { w.spin = clamp(w.spin + (held ? dt / d.spin : -dt / d.spin * 1.5), 0, 1); A.loop('spin', w.spin > .02, w.spin); }
   const rate = (d.id === 'minigun' ? lerp(d.rateMin, d.rate, w.spin) : d.rate) * rateMul(p);
   if (held && w.cd <= 0 && w.reloadT <= 0) {
@@ -3179,6 +3187,12 @@ function fireBow(p, w) {
   const d = w.def, pw = max(.15, w.charge), full = w.charge >= .98, b = bulletFrom(p, w, p.ang + (rnd() - .5) * .02 * (1 - pw), lerp(d.spd, d.spdMax, pw) / d.spd);
   b.dmg = lerp(d.dmg, d.dmgMax, pw * pw) * dmgMul(p); b.kb = d.kb * pw; if (full) { b.crit = true; b.col = 1; b.pierce += 3; b.r *= 1.3; } b.life *= .6 + pw * .6;
   muzzle(p, d, .4 + pw * .8); A.play('bow', p.x, p.y, .8, .8 + pw * .4); p.shots++; afterShot(p, w);
+}
+// orbiting blades shred anything they touch (per-enemy cooldown)
+function orbitBlades(p, w) {
+  const d = w.def; for (let i = 0; i < w.ammo; i++) { const a = G.time * d.orbitSpd + i / max(1, w.mag) * TAU, bx = p.x + cos(a) * d.orbitR, by = p.y + sin(a) * d.orbitR;
+    forEnemiesNear(bx, by, 10, e => { if ((e.orbT || 0) > G.time) return; e.orbT = G.time + .22; const c = rollCrit(p); hurtEnemy(e, d.orbitDmg * dmgMul(p) * (c ? T.ST.critMul + B.critDmg : 1), DMG.MELEE, c, cos(a + PI / 2) * 160, sin(a + PI / 2) * 160);
+      _tmpB.reset(); _tmpB.crit = c; _tmpB.x = bx; _tmpB.y = by; applyOnHit(e, _tmpB); spray(bx, by, a + PI / 2, 1, 5, ci(e.col), 220, .2, 2.5); A.play('blade', bx, by, .35, 1.4); }); }
 }
 function fireBlade(p, w) {
   const d = w.def, b = bulletFrom(p, w, p.ang); b.w = w; b.pierce = 99; b.ret = d.ret; b.dmg = d.dmg * dmgMul(p); muzzle(p, d);
@@ -3316,7 +3330,7 @@ const $ui = document.getElementById('ui');
 const UI = {
   cb: {}, next: {}, back: null, screen: '', hintEl: null, n: 0,
   // callbacks are staged while a template is built, then swapped in when it is shown
-  show(html, back = null, screen = '') { this.cb = this.next; this.next = {}; $ui.innerHTML = html; this.back = back; this.screen = screen; this.focusFirst(); },
+  show(html, back = null, screen = '') { if (this.hintEl) this.hint(''); this.cb = this.next; this.next = {}; $ui.innerHTML = html; this.back = back; this.screen = screen; this.focusFirst(); },
   clear() { $ui.innerHTML = ''; this.cb = {}; this.next = {}; this.back = null; this.screen = ''; },
   a(fn) { const k = 'a' + (this.n++); this.next[k] = fn; return `data-a="${k}"`; },   // register a click action
   btn(label, fn, cls = '', extra = '') { return `<button class="btn ${cls}" ${this.a(fn)} ${extra}>${label}</button>`; },
@@ -3359,8 +3373,8 @@ function toast(t1, t2 = '', big = false) { // stacked in a flex column so simult
 UI.bossIntro = (n, t) => { const d = document.createElement('div'); d.className = 'boss-card';
   d.innerHTML = `<div class="t1" style="font-size:46px;letter-spacing:.2em;text-shadow:0 0 20px #ff2bd6,0 0 50px #ff2bd6">${n}</div><div class="t2" style="font-size:15px;color:#fff">${t}</div>`; document.body.appendChild(d); setTimeout(() => d.remove(), 2700); };
 // tooltip near the bottom (shop pedestals etc.)
-UI.hint = html => { if (!UI.hintEl) { UI.hintEl = document.createElement('div'); UI.hintEl.style.cssText = 'position:fixed;left:50%;bottom:120px;transform:translateX(-50%);pointer-events:none;z-index:5'; document.body.appendChild(UI.hintEl); }
-  if (UI.hintEl._h !== html) { UI.hintEl._h = html; UI.hintEl.innerHTML = html; } };
+UI.hint = html => { if (!UI.hintEl) { UI.hintEl = document.createElement('div'); UI.hintEl.className = 'hint'; UI.hintEl.style.cssText = 'position:fixed;right:24px;top:50%;transform:translateY(-50%);pointer-events:none;z-index:5'; document.body.appendChild(UI.hintEl); }
+  if (UI.screen && html) html = ''; if (UI.hintEl._h !== html) { UI.hintEl._h = html; UI.hintEl.innerHTML = html; } };
 
 // ---------------------------------------------------------------------------- card rendering
 function famTag(f) { return `<span class="tag" style="color:${FAM[f].c}">${FAM[f].n}</span>`; }
@@ -3602,9 +3616,9 @@ function mapScreen() {
   let lines = ''; for (const n of map.nodes) for (const id of n.next) { const a = pos(n), b = pos(map.byId[id]); const on = (n.done || n === cur) && avail.includes(id); lines += `<line x1="${a.x}%" y1="${a.y}%" x2="${b.x}%" y2="${b.y}%" stroke="${on ? '#ffffff' : n.done ? '#7ff6ff55' : '#ffffff22'}" stroke-width="${on ? 2.5 : 1.5}" stroke-dasharray="${on ? '' : '4 5'}"/>`; }
   const nodes = map.nodes.map(n => { const p = pos(n), av = avail.includes(n.id); return `<div class="node ${av ? 'av' : ''} ${n.done ? 'done' : ''} ${n === cur ? 'cur' : ''}" style="left:${p.x}%;top:${p.y}%;color:${ROOM_COL[n.type]};border-color:${av ? ROOM_COL[n.type] : ''}" title="${ROOM_NAME[n.type]}" ${av ? UI.a(() => enterNode(n)) : ''}>${ROOM_ICON[n.type]}</div>`; }).join('');
   const bio = T.BIO[run.biome];
-  UI.show(`<div class="panel clear" style="text-align:center"><h2 style="color:${bio.edge};text-shadow:0 0 12px ${bio.edge}">${bio.n}</h2><p class="dim">Sector ${run.biome + 1} of 4 · choose your path</p>
+  UI.show(`<div class="backdrop"><div class="panel clear" style="text-align:center"><h2 style="color:${bio.edge};text-shadow:0 0 12px ${bio.edge}">${bio.n}</h2><p class="dim">Sector ${run.biome + 1} of 4 · choose your path</p>
     <div class="map"><svg>${lines}</svg>${nodes}</div><div class="legend">${Object.keys(ROOM_ICON).map(k => `<span style="color:${ROOM_COL[k]}">${ROOM_ICON[k]} ${ROOM_NAME[k]}</span>`).join('')}</div>
-    <div class="row" style="justify-content:center;margin-top:12px">${UI.btn('Build [Tab]', () => openBuild(true, mapScreen), 'sm')}<span class="gold">◆ ${run.gold}</span><span>HP ${ceil(G.player.hp)}/${G.player.maxHp}</span></div></div>`, null, 'map');
+    <div class="row" style="justify-content:center;margin-top:12px">${UI.btn('Build [Tab]', () => openBuild(true, mapScreen), 'sm')}<span class="gold">◆ ${run.gold}</span><span>HP ${ceil(G.player.hp)}/${G.player.maxHp}</span></div></div></div>`, null, 'map');
 }
 // reward cards (after rooms)
 function rewardScreen(opts) {
@@ -3645,7 +3659,7 @@ function summaryScreen(win, shards, newAch) {
   const run = G.run, s = run.stats; G.state = 'summary'; document.body.classList.remove('play');
   const recap = run.recap.slice(-6).reverse().map(r => `<div class="row" style="gap:8px;font-size:12px"><span class="bad" style="min-width:42px">-${r.dmg}</span><span>${r.src}</span><span class="dim" style="margin-left:auto">${fmtTime(r.t)} · ${r.hp} HP left</span></div>`).join('');
   const ups = [...new Set(run.upgrades)].map(id => `<span class="tag" style="color:${FAM[UPG[id].fam].c}">${UPG[id].n}${run.upgrades.filter(x => x === id).length > 1 ? ' ×' + run.upgrades.filter(x => x === id).length : ''}</span>`).join(' ');
-  UI.show(`<div class="panel wide"><h1 style="font-size:36px;${win ? '' : 'text-shadow:0 0 14px #ff2a4a,0 0 30px #ff2a4a'}">${win ? 'VICTORY' : 'RUN OVER'}</h1>
+  UI.show(`<div class="backdrop"><div class="panel wide"><h1 style="font-size:36px;${win ? '' : 'text-shadow:0 0 14px #ff2a4a,0 0 30px #ff2a4a'}">${win ? 'VICTORY' : 'RUN OVER'}</h1>
     <p class="dim">${T.CH[run.char].n} · ${T.BIO[run.biome].n} · Seed ${run.seed}${run.heat ? ' · Heat ' + run.heat : ''}</p>
     <div class="row" style="align-items:flex-start;gap:28px;margin-top:12px"><div class="kv" style="min-width:230px"><b>Time</b><span>${fmtTime(s.time)}</span><b>Rooms</b><span>${s.rooms}</span><b>Kills</b><span>${s.kills} (${s.elites} elite)</span>
       <b>Damage dealt</b><span>${fmt(s.dmgDealt)}</span><b>Damage taken</b><span>${fmt(s.dmgTaken)}</span><b>Perfect dodges</b><span>${s.grazes}</span><b>Best combo</b><span>${s.maxCombo}</span><b>Gold earned</b><span>${s.gold}</span><b>Synergies</b><span>${run.synergies.length}</span></div>
@@ -3653,7 +3667,7 @@ function summaryScreen(win, shards, newAch) {
       <h3 style="margin-top:10px">Build</h3><div class="tags" style="display:flex;gap:5px;flex-wrap:wrap">${ups || '<span class="dim">none</span>'}</div>
       ${run.synergies.length ? `<h3 style="margin-top:10px">Synergies</h3><p class="gold">${run.synergies.map(id => SYN[id].n).join(' · ')}</p>` : ''}
       <h3 style="margin-top:10px">Shards earned</h3><p class="gold" style="font-size:20px">◆ +${shards}</p>${newAch.length ? `<p class="good">New: ${newAch.join(', ')}</p>` : ''}</div></div>
-    <div class="row" style="margin-top:18px">${UI.btn('Run Again', () => charSelect(), 'pri')}${UI.btn('Same Seed', () => startRun({ char: run.char, seed: run.seed, heat: run.heat, daily: run.daily }))}${UI.btn('Title', titleScreen)}</div></div>`, titleScreen, 'summary');
+    <div class="row" style="margin-top:18px">${UI.btn('Run Again', () => charSelect(), 'pri')}${UI.btn('Same Seed', () => startRun({ char: run.char, seed: run.seed, heat: run.heat, daily: run.daily }))}${UI.btn('Title', titleScreen)}</div></div></div>`, titleScreen, 'summary');
 }
 
 

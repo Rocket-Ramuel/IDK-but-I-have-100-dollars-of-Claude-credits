@@ -302,7 +302,7 @@ function explode(x, y, r, dmg, team, src, small = false) {
   A.play(big ? 'explode' : 'explodeS', x, y, small ? .6 : 1); if (big) A.duck(.45, .5);
   trauma(small ? .12 : big ? .5 : .3); if (big) hitstop(.035); flashLight(x, y, r * 3.2, '#ff9a4a', .22, 1.2); if (big) aberrate(T.fx.abberation);
   burst(x, y, small ? 10 : 24, C_FIRE2, r * 6, .4, 4); burst(x, y, small ? 6 : 14, C_FIRE, r * 4, .55, 5, PK.DOT); burst(x, y, small ? 3 : 8, C_SMOKE, r * 1.5, 1.1, r * .3, PK.SMOKE, 2);
-  ring(x, y, r, C_FIRE2, .3, 5); emit(PK.GLOW, x, y, 0, 0, .25, r * 1.6, C_FIRE2, 0); decal('scorch', x, y, r * .9, null, .7);
+  ring(x, y, r, C_FIRE2, .3, 5); emit(PK.GLOW, x, y, 0, 0, .2, r * 1.15, C_FIRE2, 0); decal('scorch', x, y, r * .9, null, .7);
   if (team !== 1) {
     forEnemiesNear(x, y, r, e => { const d = hypot(e.x - x, e.y - y), f = 1 - .5 * sat(d / r), a = atan2(e.y - y, e.x - x);
       hurtEnemy(e, dmg * f, DMG.EXPL, false, cos(a) * 300, sin(a) * 300); if (B.expStun && team === 0) e.stunT = max(e.stunT, B.expStun); if (B.syn.avalanche) addChill(e, 60); });
@@ -417,7 +417,7 @@ function bulletHitsEnemy(b, e) {
   applyOnHit(e, b);
   if (B.syn.detonator && crit) explode(b.x, b.y, 45 * expRad(), b.dmg * .5 * expMul(), 0, 'Detonator', true);
   if (B.split && !b.isFrag || (b.isFrag && b.splitDepth > 0)) splitBullet(b, B.split || 1, 0);
-  if (b.explode) { explode(b.x, b.y, b.explode * (b.homing && B.syn.smartbombs ? 1.5 : 1), b.expDmg, 0, b.src, b.isFrag); if (!b.mine) return true; }
+  if (b.explode) { explode(b.x, b.y, b.explode * (b.homing && B.syn.smartbombs ? 1.5 : 1), b.expDmg, 0, b.src, b.isFrag); if (b.pierce <= 0) return true; }
   if (b.ebounce < B.enemyBounce && !b.summon) { b.ebounce++; const t = nearestOther(b, e, 300); if (t) { const s = hypot(b.vx, b.vy), na = atan2(t.y - b.y, t.x - b.x); b.vx = cos(na) * s; b.vy = sin(na) * s; return false; } }
   if (b.pierce > 0) {
     b.pierce--; b.pierced++; b.dmg *= 1 + B.pierceDmg; if (B.syn.drill) b.critBonus += .25;
@@ -470,7 +470,7 @@ function updateEnemyBullets(dt) {
 function reflectBullet(b) { const f = newBullet(0); f.x = f.px = b.x; f.y = f.py = b.y; f.vx = -b.vx * 1.4; f.vy = -b.vy * 1.4; f.dmg = 20 * (1 + B.dmg); f.r = 3; f.life = 1; f.src = 'Aegis'; f.col = 1; ring(b.x, b.y, 8, C_GOLD, .2); }
 function graze(p, b) {
   b.grazed = true; const run = G.run; run.stats.grazes++; if (run.stats.grazes === 50) unlockAch('graze50');
-  if (p.grazedThisDash) { run.ability += 0; return; } p.grazedThisDash = true;
+  if (p.grazedThisDash) return; p.grazedThisDash = true;
   A.play('graze', p.x, p.y); slowmo(T.player.grazeSlowScale, T.player.grazeSlow); wtext(p.x, p.y - 20, 'PERFECT', '#7ff6ff', 10, .7, -50);
   ring(p.x, p.y, 40, ci('#7ff6ff'), .35, 3); emit(PK.GLOW, p.x, p.y, 0, 0, .3, 50, ci('#7ff6ff'), 0);
   const w = curWeapon(p); if (w.def.mag < 99) w.ammo = min(w.mag, w.ammo + ceil(w.mag * (run.char === 'kestrel' ? 1 : T.player.grazeAmmo))); if (w.reloadT > 0 && run.char === 'kestrel') w.reloadT = 0;
@@ -503,7 +503,7 @@ function updatePickups(dt) {
 // ---- props: barrels, chests, shop items, interactables -----------------------------------------------------------------
 function addProp(kind, x, y, o = {}) { const pr = Object.assign({ kind, x, y, px: x, py: y, hp: T.room.barrelHp, dead: false, flash: 0, t: 0, r: 11 }, o); G.props.push(pr); return pr; }
 function updateProps(dt) {
-  const p = G.player;
+  const p = G.player; let hint = null;
   for (let i = G.props.length - 1; i >= 0; i--) {
     const pr = G.props[i]; pr.t += dt; pr.flash = max(0, pr.flash - dt);
     if (pr.kind === 'barrel') {
@@ -513,8 +513,9 @@ function updateProps(dt) {
       const d = hypot(p.x - pr.x, p.y - pr.y); if (d < p.r + pr.r && d > 0) { p.x = pr.x + (p.x - pr.x) / d * (p.r + pr.r); p.y = pr.y + (p.y - pr.y) / d * (p.r + pr.r); }
     }
     if (pr.dead) { G.props.splice(i, 1); continue; }
-    if (pr.interact) { pr.near = !p.dead && dist2(p.x, p.y, pr.x, pr.y) < 42 * 42; }
+    if (pr.interact) { pr.near = !p.dead && dist2(p.x, p.y, pr.x, pr.y) < 42 * 42; if (pr.near && pr.it && !pr.sold) hint = pr; }
   }
+  if (G.tick % 6 === 0) { const it = hint && hint.it; UI.hint(!it ? '' : it.kind === 'upg' ? cardHTML(it.u) : it.kind === 'weapon' ? weaponCard(it.id) : it.kind === 'active' ? activeCard(it.id) : ''); }
 }
 function interact(p) {
   let best = null, bd = 42 * 42; for (const pr of G.props) if (pr.interact && !pr.dead) { const d = dist2(p.x, p.y, pr.x, pr.y); if (d < bd) { bd = d; best = pr; } }

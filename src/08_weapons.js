@@ -40,6 +40,7 @@ function updateWeapons(p, dt) {
     else if (w.charge > 0) { fireBow(p, w); w.charge = 0; w.full = false; w.cd = 1 / d.rate; A.loop('draw', false); }
     return;
   }
+  if (d.k === 'orbit') orbitBlades(p, w);
   if (d.id === 'minigun') { w.spin = clamp(w.spin + (held ? dt / d.spin : -dt / d.spin * 1.5), 0, 1); A.loop('spin', w.spin > .02, w.spin); }
   const rate = (d.id === 'minigun' ? lerp(d.rateMin, d.rate, w.spin) : d.rate) * rateMul(p);
   if (held && w.cd <= 0 && w.reloadT <= 0) {
@@ -144,6 +145,12 @@ function fireBow(p, w) {
   const d = w.def, pw = max(.15, w.charge), full = w.charge >= .98, b = bulletFrom(p, w, p.ang + (rnd() - .5) * .02 * (1 - pw), lerp(d.spd, d.spdMax, pw) / d.spd);
   b.dmg = lerp(d.dmg, d.dmgMax, pw * pw) * dmgMul(p); b.kb = d.kb * pw; if (full) { b.crit = true; b.col = 1; b.pierce += 3; b.r *= 1.3; } b.life *= .6 + pw * .6;
   muzzle(p, d, .4 + pw * .8); A.play('bow', p.x, p.y, .8, .8 + pw * .4); p.shots++; afterShot(p, w);
+}
+// orbiting blades shred anything they touch (per-enemy cooldown)
+function orbitBlades(p, w) {
+  const d = w.def; for (let i = 0; i < w.ammo; i++) { const a = G.time * d.orbitSpd + i / max(1, w.mag) * TAU, bx = p.x + cos(a) * d.orbitR, by = p.y + sin(a) * d.orbitR;
+    forEnemiesNear(bx, by, 10, e => { if ((e.orbT || 0) > G.time) return; e.orbT = G.time + .22; const c = rollCrit(p); hurtEnemy(e, d.orbitDmg * dmgMul(p) * (c ? T.ST.critMul + B.critDmg : 1), DMG.MELEE, c, cos(a + PI / 2) * 160, sin(a + PI / 2) * 160);
+      _tmpB.reset(); _tmpB.crit = c; _tmpB.x = bx; _tmpB.y = by; applyOnHit(e, _tmpB); spray(bx, by, a + PI / 2, 1, 5, ci(e.col), 220, .2, 2.5); A.play('blade', bx, by, .35, 1.4); }); }
 }
 function fireBlade(p, w) {
   const d = w.def, b = bulletFrom(p, w, p.ang); b.w = w; b.pierce = 99; b.ret = d.ret; b.dmg = d.dmg * dmgMul(p); muzzle(p, d);

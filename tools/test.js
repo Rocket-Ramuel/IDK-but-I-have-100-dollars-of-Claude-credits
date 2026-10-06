@@ -43,6 +43,13 @@ const out = process.env.OUT || path.join(__dirname, '..', 'shots'); fs.mkdirSync
       await page.waitForTimeout(30);
     }
   }
+  if (mode === 'scene') { // real-time capture of a configured fight: BIOME, NODE(type), UPGS, WEAPON, CHAR
+    await page.evaluate(([b, type, ups, w, ch]) => { SL.G.botAuto = true; SL.startRun({ char: ch, seed: 'SCENE' + b + type, heat: 0 }); const run = SL.G.run;
+      run.biome = b; run.map = genMap(run, b); const n = run.map.layers[3][0]; n.type = type; if (type === 'boss') { n.id = b + '-boss'; n.layer = 6; }
+      if (w) { run.weapons[0] = makeWeapon(w); } for (const u of ups) if (u) SL.pickUpgrade(u, true); SL.enterNode(n); SL.G.godMode = true; },
+      [+(process.env.BIOME || 0), process.env.NODE || 'combat', (process.env.UPGS || '').split(','), process.env.WEAPON || '', process.env.CHAR || 'kestrel']);
+    for (let i = 1; i <= secs; i++) { await page.waitForTimeout(2500); if (process.env.TURBO) await page.evaluate(() => SL.turbo(600)); console.log(JSON.stringify(await stat())); await shot((process.env.TAG || 'scene') + i); }
+  }
   if (mode === 'stress') {
     await page.evaluate(() => { SL.G.botAuto = true; SL.startRun({ char: 'kestrel', seed: 'STRESS', heat: 0 }); });
     await page.waitForTimeout(500);

@@ -64,7 +64,9 @@ p{margin:6px 0;line-height:1.45}
 .tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
 .list{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
 .item{border:1px solid rgba(255,255,255,.12);border-radius:4px;padding:8px 10px;font-size:12px;background:rgba(255,255,255,.03)}
-.item b{display:block;color:#fff;font-size:13px;margin-bottom:3px}
+.item>b:first-child{display:block;color:#fff;font-size:13px;margin-bottom:3px}.item b{color:#fff}
+.backdrop{position:fixed;inset:0;background:radial-gradient(ellipse at center,rgba(14,8,30,.9),rgba(3,2,8,.97));display:flex;align-items:center;justify-content:center;animation:fade .3s}
+.hint .card{width:260px;min-height:0;animation:none;cursor:default}
 .item.lock{opacity:.45}
 .item.unk{filter:blur(.4px);opacity:.35}
 input[type=range]{width:180px;accent-color:var(--c2)}

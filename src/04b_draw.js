@@ -38,7 +38,10 @@ function drawWorld(ctx, alpha, wdt) {
   for (const pr of G.props) drawProp(ctx, pr);
   // mortar shell shadows
   camXf(); ctx.fillStyle = 'rgba(0,0,0,.4)'; for (const m of MORTARS) { const f = m.t / m.d; ctx.beginPath(); ctx.ellipse(lerp(m.x0, m.x1, f), lerp(m.y0, m.y1, f), 5, 2.5, 0, 0, TAU); ctx.fill(); }
-  // enemies
+}
+// actors are drawn after the lightmap so combatants stay crisp while the environment stays moody
+function drawActors(ctx, alpha) {
+  const p = G.player; camXf();
   for (const e of G.enemies) drawEnemy(ctx, e, alpha);
   if (G.corpse) drawCorpse(ctx, G.corpse);
   // allies
@@ -191,7 +194,7 @@ function drawEmissive(ctx, alpha) {
   if (p && !p.dead) { const w = curWeapon(p);
     if (w.beam) { const x = p.x + cos(p.ang) * 14, y = p.y + sin(p.ang) * 14, b = w.beam; ctx.lineCap = 'round'; ctx.strokeStyle = pal[0]; ctx.lineWidth = b.w * (1 + .2 * sin(t * 60)); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(b.x2, b.y2); ctx.stroke();
       ctx.strokeStyle = '#ffffff'; ctx.lineWidth = b.w * .4; ctx.stroke(); ctx.lineCap = 'butt'; }
-    if (w.def.k === 'orbit') { for (let i = 0; i < w.ammo; i++) { const a = t * w.def.orbitSpd + i / max(1, w.mag) * TAU, bx = p.x + cos(a) * w.def.orbitR, by = p.y + sin(a) * w.def.orbitR; xf(ctx, bx, by, a * 2, 7, 7); ctx.fillStyle = pal[0]; ctx.fill(SH.tri); } camXf(); }
+    if (w.def.k === 'orbit') { for (let i = 0; i < w.ammo; i++) { const a = G.time * w.def.orbitSpd + i / max(1, w.mag) * TAU, bx = p.x + cos(a) * w.def.orbitR, by = p.y + sin(a) * w.def.orbitR; xf(ctx, bx, by, a * 2, 7, 7); ctx.fillStyle = pal[0]; ctx.fill(SH.tri); } camXf(); }
     if (p.muzzle > 0) { const r = 22; ctx.globalAlpha = p.muzzle / .05; ctx.drawImage(lightSprite('#ffe8a0'), p.x + cos(p.ang) * 18 - r, p.y + sin(p.ang) * 18 - r, r * 2, r * 2); ctx.globalAlpha = 1; }
     if (w.def.k === 'bow' && w.charge > 0) { ctx.globalAlpha = .4 + w.charge * .6; ctx.strokeStyle = w.full ? '#fff27a' : pal[0]; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(p.x, p.y, 20 - w.charge * 6, p.ang - 1, p.ang + 1); ctx.stroke(); ctx.globalAlpha = 1; }
     if (p.buffs.aegis > 0) { ctx.strokeStyle = '#ffe23a'; ctx.lineWidth = 2; ctx.globalAlpha = .6; ctx.beginPath(); ctx.arc(p.x, p.y, 40, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1; }
