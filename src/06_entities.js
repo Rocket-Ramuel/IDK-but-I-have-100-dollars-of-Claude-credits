@@ -95,7 +95,7 @@ function updatePlayer(dt) {
   // weapons / abilities / actives
   updateWeapons(p, dt);
   if ((IN.take('ability') || (G.bot && BOT.ability)) && p.abilityCd <= 0) { BOT.ability = false; useAbility(p); p.abilityCd = ch.cd; }
-  else if (p.abilityCd > 0) { const was = p.abilityCd; p.abilityCd -= dt; if (was > 0 && p.abilityCd <= 0) A.play('ready'); }
+  else if (p.abilityCd > 0) { const was = p.abilityCd; p.abilityCd -= dt; if (was > 0 && p.abilityCd <= 0) { A.play('ready'); p.readyFlash = 1; ring(p.x, p.y, 26, ci(p.color), .35, 2); } }
   for (let i = 0; i < 2; i++) { const a = run.actives[i]; if (!a) continue; if (a.cd > 0) a.cd -= dt; if (IN.take(i ? 'act2' : 'act1') && a.cd <= 0) { useActive(p, a); } }
   if (IN.take('swap') && run.weapons.length > 1) swapWeapon(p);
   if (IN.take('interact')) interact(p);
@@ -168,7 +168,7 @@ function hurtEnemy(e, dmg, kind, crit = false, kx = 0, ky = 0) {
   if (e.poison > 0) dmg *= 1 + B.corrode * e.poison;
   if (e.buffT > 0) dmg *= 1 - T.E.warden.buffDef;
   if (kind & DMG.SHOCK && e.poison > 0 && B.syn.electrolysis) dmg *= 1.5;
-  if (e.armor && !(kind & DMG.DOT)) { const d0 = dmg; dmg = max(dmg * .25, dmg - e.armor); if (d0 - dmg > 1 && rnd() < .3) A.play('armor', e.x, e.y, .4); }
+  if (e.armor && !(kind & DMG.DOT)) { const d0 = dmg; dmg = max(dmg * .25, dmg - e.armor); if (d0 - dmg > 1) { if (rnd() < .3) A.play('armor', e.x, e.y, .4); emit(PK.SPARK, e.x + rr(-e.r, e.r) * .6, e.y + rr(-e.r, e.r) * .6, rr(-140, 140), rr(-140, 140), .15, 2.5, C_WHITE); } }
   if (e.shield > 0) { const a = min(e.shield, dmg); e.shield -= a; dmg -= a; e.shieldT = T.elite.shielded.regen; if (e.shield <= 0) { ring(e.x, e.y, e.r * 1.6, ci('#58a8ff'), .3, 3); A.play('shatter', e.x, e.y, .5, 1.3); } if (dmg <= 0) return a; }
   e.hp -= dmg; G.run.stats.dmgDealt += dmg; e.lastHitT = G.time;
   if (!(kind & DMG.DOT)) { e.flash = .07; e.squash = .25; }

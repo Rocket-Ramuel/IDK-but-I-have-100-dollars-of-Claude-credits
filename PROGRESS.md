@@ -29,6 +29,12 @@
   SwiftShader software GL (dominated by rasterisation that is GPU-side on real hardware).
 * Every SFX recipe offline-rendered: non-silent, no NaN, peaks within limiter range. Music sequencer + stem ramps verified.
 
+## Accessibility: no audio-only cues
+Every gameplay sound has a visual twin (wind-up glow + ground telegraphs, sniper laser sights, mortar circles, fuse rings,
+blink markers, spawn portals, hazard flicker, PERFECT/OVERHEAT/EMPTY/RUSH!/PHASE text, ability-ready pulse, HP-bar heartbeat,
+armor sparks). Settings → Video & Accessibility → **Visualize sound cues** adds directional captions for important sounds
+(`CUE_LABEL` in `03_audio.js`); it switches on automatically when master/effects volume is 0 or audio is unavailable.
+
 ## Key design decisions
 * Single file built from `src/` sections — keeps the required section order while staying editable.
 * Canvas 2D scene + WebGL post pass (bloom threshold/blur, chromatic aberration, desaturation, vignette, CRT); falls back to 2D.

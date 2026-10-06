@@ -44,7 +44,7 @@ function updateWeapons(p, dt) {
   if (d.id === 'minigun') { w.spin = clamp(w.spin + (held ? dt / d.spin : -dt / d.spin * 1.5), 0, 1); A.loop('spin', w.spin > .02, w.spin); }
   const rate = (d.id === 'minigun' ? lerp(d.rateMin, d.rate, w.spin) : d.rate) * rateMul(p);
   if (held && w.cd <= 0 && w.reloadT <= 0) {
-    if (w.ammo <= 0) { if (d.k === 'orbit') { w.cd = .2; } else { startReload(w, p); if (w.reloadT <= 0) A.play('empty', p.x, p.y); w.cd = .25; } }
+    if (w.ammo <= 0) { if (d.k === 'orbit') { w.cd = .2; } else { startReload(w, p); if (w.reloadT <= 0) A.play('empty', p.x, p.y); w.cd = .25; } if (w.reloadT <= 0 && (p.emptyT || 0) < G.time) { p.emptyT = G.time + 1; wtext(p.x, p.y - 20, 'EMPTY', '#ff8a2b', 9, .6); } }
     else {
       if (d.k === 'rail') fireRail(p, w); else if (d.k === 'arc') fireArc(p, w); else if (d.k === 'orbit') fireBlade(p, w); else fireGun(p, w);
       if (!od || d.k === 'orbit') w.ammo--;

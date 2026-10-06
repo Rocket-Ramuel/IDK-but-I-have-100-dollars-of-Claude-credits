@@ -85,7 +85,7 @@ function drawHUD(dt) {
     // letterbox during focus moments
     const lb = G.cam.focusT > 0 ? min(1, G.cam.focusT * 2) : 0; if (lb > 0) { c.fillStyle = '#000'; c.fillRect(0, 0, W, H * .09 * lb); c.fillRect(0, H - H * .09 * lb, W, H * .09 * lb); }
     else {
-      hudVitals(c, p, run, dt); hudWeapon(c, p, run, W, H); hudMinimap(c, run, W); hudTop(c, run, W, H); hudThreats(c, W, H);
+      hudVitals(c, p, run, dt); hudWeapon(c, p, run, W, H); hudMinimap(c, run, W); hudTop(c, run, W, H); hudThreats(c, W, H); hudCues(c, p, W, H, dt);
       if (run.combo >= 3) { const x = W - 30, y = H * .42, f = run.comboT / T.player.comboTime; c.textAlign = 'right'; c.font = `900 ${28 + min(20, run.combo * .3)}px Segoe UI,Arial`; c.fillStyle = '#ffe23a'; c.shadowColor = '#ffe23a'; c.shadowBlur = 12;
         c.fillText(run.combo + '×', x, y); c.shadowBlur = 0; c.font = '700 10px ui-monospace,monospace'; c.fillStyle = '#c8b860'; c.fillText('COMBO', x, y + 24); c.fillStyle = '#ffe23a'; c.fillRect(x - 80 * f, y + 34, 80 * f, 3); }
       hudCrosshair(c, p);
@@ -94,9 +94,24 @@ function drawHUD(dt) {
   if (G.debug.fps || G.debug.ai || G.debug.stress) hudDebug(c, W, H);
 }
 function hudBar(c, x, y, w, h, f, col, bg = 'rgba(255,255,255,.1)') { c.fillStyle = bg; c.fillRect(x, y, w, h); c.fillStyle = col; c.fillRect(x, y, w * clamp(f, 0, 1), h); }
+function hudCues(c, p, W, H, dt) {
+  const px = toScreenX(p.x, p.y), py = toScreenY(p.x, p.y); c.textAlign = 'center'; c.textBaseline = 'middle';
+  for (let i = CUES.length - 1; i >= 0; i--) {
+    const q = CUES[i]; q.t -= dt; if (q.t <= 0) { CUES.splice(i, 1); continue; } const a = min(1, q.t * 2), lbl = q.label + (q.n > 1 ? ' ×' + q.n : '');
+    c.globalAlpha = a; c.font = '700 12px ui-monospace,monospace';
+    if (q.x === undefined) { c.fillStyle = 'rgba(0,0,0,.6)'; const w = c.measureText(lbl).width + 16; c.fillRect(W / 2 - w / 2, H - 96 - i * 20, w, 18); c.fillStyle = '#ffe23a'; c.fillText('◉ ' + lbl, W / 2, H - 87 - i * 20); continue; }
+    const sx = toScreenX(q.x, q.y), sy = toScreenY(q.x, q.y), on = sx > 20 && sx < W - 20 && sy > 20 && sy < H - 20;
+    if (on) { const r = 14 + (1.2 - q.t) * 30; c.strokeStyle = '#ffe23a'; c.lineWidth = 2; c.beginPath(); c.arc(sx, sy, r, 0, TAU); c.stroke(); }
+    const ang = atan2(sy - py, sx - px), d = min(130, max(70, hypot(sx - px, sy - py) * .5)), lx = px + cos(ang) * d, ly = py + sin(ang) * d, w = c.measureText(lbl).width + 26;
+    c.fillStyle = 'rgba(0,0,0,.65)'; c.fillRect(lx - w / 2, ly - 10, w, 20); c.fillStyle = '#ffe23a'; c.fillText(lbl, lx + 6, ly);
+    c.save(); c.translate(lx - w / 2 + 9, ly); c.rotate(ang); c.beginPath(); c.moveTo(6, 0); c.lineTo(-4, 5); c.lineTo(-4, -5); c.closePath(); c.fill(); c.restore();
+  }
+  c.globalAlpha = 1;
+}
 function hudVitals(c, p, run, dt) {
   const x = 22, y = 22, w = 240, h = 16, f = p.hp / p.maxHp; HUDS.hpGhost = max(f, HUDS.hpGhost - dt * .35);
   c.fillStyle = 'rgba(0,0,0,.5)'; c.fillRect(x - 4, y - 4, w + 8, h + 8);
+  if (f < T.fx.lowHp) { const beat = pow(max(0, sin(G.rt * 7.5)), 8); c.strokeStyle = `rgba(255,40,70,${.4 + .6 * beat})`; c.lineWidth = 2 + beat * 3; c.strokeRect(x - 5, y - 5, w + 10, h + 10); } // visual heartbeat
   hudBar(c, x, y, w, h, HUDS.hpGhost, 'rgba(255,255,255,.55)', 'rgba(255,40,70,.12)');
   const g = c.createLinearGradient(x, 0, x + w, 0); g.addColorStop(0, f < .3 ? '#ff2a4a' : '#ff4a6a'); g.addColorStop(1, f < .3 ? '#ff6a3a' : '#ff8ab0'); c.fillStyle = g; c.fillRect(x, y, w * f, h);
   if (p.shieldMax) hudBar(c, x, y + h - 4, w, 4, p.shield / p.shieldMax, '#5dff8a', 'rgba(0,0,0,0)');
@@ -112,6 +127,7 @@ function hudVitals(c, p, run, dt) {
   items.forEach((it, i) => { const cx = x + 20 + i * 52, cy = y + h + 46, r = 18, ready = it.f >= 1;
     c.fillStyle = 'rgba(0,0,0,.55)'; c.beginPath(); c.arc(cx, cy, r + 3, 0, TAU); c.fill();
     c.strokeStyle = ready ? it.col : 'rgba(255,255,255,.2)'; c.lineWidth = 3; c.beginPath(); c.arc(cx, cy, r, -PI / 2, -PI / 2 + TAU * clamp(it.f, 0, 1)); c.stroke();
+    if (ready && i === 0 && p.readyFlash > 0) { const f = p.readyFlash; c.strokeStyle = it.col; c.lineWidth = 3; c.globalAlpha = f; c.beginPath(); c.arc(cx, cy, r + (1 - f) * 18, 0, TAU); c.stroke(); c.globalAlpha = 1; p.readyFlash = max(0, f - dt * 1.5); }
     if (ready) { c.shadowColor = it.col; c.shadowBlur = 10; c.fillStyle = it.col; c.beginPath(); c.arc(cx, cy, 6, 0, TAU); c.fill(); c.shadowBlur = 0; }
     c.fillStyle = '#c8d4ea'; c.font = '700 9px ui-monospace,monospace'; c.textAlign = 'center'; c.fillText(bindLabel(it.k[IN.device === 'pad' ? 2 : 0] || it.k[0]), cx, cy + r + 10); });
   // gold
@@ -246,7 +262,7 @@ function settingsScreen(back, tab = 'audio') {
   const tg = (k, lab) => `<label>${lab}</label><span>${UI.btn(s[k] ? 'On' : 'Off', () => { s[k] = !s[k]; applySettings(); settingsScreen(back, tab); }, s[k] ? 'pri sm' : 'sm')}</span><span></span>`;
   let body = '';
   if (tab === 'audio') body = `<div class="set">${sl('vMaster', 'Master volume', 0, 1, .05)}${sl('vSfx', 'Effects', 0, 1, .05)}${sl('vMusic', 'Music', 0, 1, .05)}${sl('vUi', 'Interface', 0, 1, .05)}</div>`;
-  if (tab === 'video') body = `<div class="set">${sl('shake', 'Screen shake', 0, 1.5, .05)}${tg('reducedMotion', 'Reduced motion')}${tg('flashReduce', 'Flash reduction')}${tg('dmgNumbers', 'Damage numbers')}${tg('hitstop', 'Hitstop')}
+  if (tab === 'video') body = `<p class="dim" style="font-size:12px;margin-bottom:10px">Every gameplay sound has a visual cue. "Visualize sound cues" adds directional captions and turns on automatically when sound is muted.</p><div class="set">${sl('shake', 'Screen shake', 0, 1.5, .05)}${tg('soundViz', 'Visualize sound cues')}${tg('reducedMotion', 'Reduced motion')}${tg('flashReduce', 'Flash reduction')}${tg('dmgNumbers', 'Damage numbers')}${tg('hitstop', 'Hitstop')}
     ${sl('bloom', 'Bloom', 0, 1.5, .05)}${tg('lighting', 'Dynamic lighting')}${tg('crt', 'CRT scanlines')}${sl('particles', 'Particle density', .25, 1.5, .05)}${sl('renderScale', 'Render scale', .5, 1, .05)}
     <label>Bullet palette</label><select data-set="palette">${Object.keys(BPAL).map(k => `<option ${s.palette === k ? 'selected' : ''} value="${k}">${{ default: 'Default', deutan: 'Deuteranopia', protan: 'Protanopia', tritan: 'Tritanopia' }[k]}</option>`).join('')}</select><span></span></div>`;
   if (tab === 'game') body = `<div class="set">${sl('gameSpeed', 'Game speed', .5, 1.2, .05)}${tg('aimAssist', 'Gamepad aim assist')}${tg('assist', 'Assist mode (−50% damage taken)')}${tg('fps', 'FPS overlay')}${tg('debug', 'AI debug overlay (F4)')}</div>

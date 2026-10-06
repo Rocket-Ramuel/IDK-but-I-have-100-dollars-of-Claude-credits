@@ -27,6 +27,7 @@ const A = {
     for (const g of [this.duckM.gain, this.duckS.gain]) { g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(1 - amount, t + .03); g.setTargetAtTime(1, t + .05 + dur * .3, dur * .35); } },
   // ---- play a one-shot. x,y world position (undefined = centered/non-spatial)
   play(name, x, y, vol = 1, pitch = 1) {
+    if (CUE_LABEL[name] && !G.demo) soundCue(CUE_LABEL[name], x, y);
     if (!this.ok || G.settings.vMaster <= 0) return;
     const def = SFX[name]; if (!def || (G.demo && !def.ui)) return;
     const c = this.ctx, now = c.currentTime;
@@ -57,6 +58,16 @@ const A = {
     if (hpFrac < T.fx.lowHp && hpFrac > 0 && this.hbT <= 0) { this.hbT = lerp(.55, .95, hpFrac / T.fx.lowHp); this.play('heart'); }
   },
 };
+// ---- sound visualisation: every gameplay-relevant sound also produces a directional caption (accessibility)
+const CUE_LABEL = { wind: 'Wind-up', windSnipe: 'Sniper aiming', growl: 'Charge', fuse: 'Fuse lit', blink: 'Teleport', burrow: 'Burrowing', spawn: 'Enemy spawning', laser: 'Laser',
+  roar: 'Roar', whistle: 'Shell incoming', mortar: 'Mortar fired', slam: 'Slam', explode: 'Explosion', eshotBig: 'Heavy shot', snipe: 'Sniper shot', hurt: 'Hit taken', ready: 'Ability ready', empty: 'Out of ammo' };
+const CUES = [];
+const cuesOn = () => G.settings.soundViz || !A.ok || G.settings.vMaster <= 0 || G.settings.vSfx <= 0;
+function soundCue(label, x, y) {
+  if (!cuesOn() || G.state !== 'play') return;
+  for (const c of CUES) if (c.label === label && c.t > .8 && (x === undefined || hypot((c.x || 0) - x, (c.y || 0) - y) < 160)) { c.t = 1.2; c.x = x; c.y = y; c.n++; return; }
+  if (CUES.length >= 8) CUES.shift(); CUES.push({ label, x, y, t: 1.2, n: 1 });
+}
 // ---- synthesis helpers --------------------------------------------------------------------
 function _o(out, type, f0, f1, t, dur, peak, att = .002, sweep = dur) {
   const c = A.ctx, o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t);

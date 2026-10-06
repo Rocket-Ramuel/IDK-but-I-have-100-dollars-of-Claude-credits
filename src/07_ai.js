@@ -392,7 +392,7 @@ const TAC = {
     this.healers = healers; this.healer = healer; this.tank = tank; this.packSize = staged;
     // pack rush: enough staged melee or they've waited long enough (faster if the player is turtling)
     if (this.rushing && G.time > this.rushUntil) { this.rushing = false; this.waitStart = G.time; }
-    if (!this.rushing && staged > 0 && (staged >= T.ai.rushPack || G.time - this.waitStart > T.ai.rushWait * (this.flush ? .5 : 1))) { this.rushing = true; this.rushUntil = G.time + 3.2; if (staged >= 3) A.play('growl', this.centroid.x, this.centroid.y, .3, 2); }
+    if (!this.rushing && staged > 0 && (staged >= T.ai.rushPack || G.time - this.waitStart > T.ai.rushWait * (this.flush ? .5 : 1))) { this.rushing = true; this.rushUntil = G.time + 3.2; for (const e of E) if (!e.dead && e.def.b === 'swarm' && e.dist < 400) { e.flash = .12; ring(e.x, e.y, e.r * 3, ci('#ff2a4a'), .4, 2); } wtext(this.centroid.x, this.centroid.y - 20, 'RUSH!', '#ff4d6d', 11, .9, -30); if (staged >= 3) A.play('growl', this.centroid.x, this.centroid.y, .3, 2); }
     if (!staged && !this.rushing) this.waitStart = G.time;
     // roles: ranged units nearest the front pin, the rest flank left/right (pincer when kiting)
     const ranged = []; for (const e of E) if (!e.dead && e.spawnT <= 0 && (e.def.b === 'gunner' || e.def.b === 'wisp')) ranged.push(e);

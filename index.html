@@ -617,6 +617,7 @@ const A = {
     for (const g of [this.duckM.gain, this.duckS.gain]) { g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(1 - amount, t + .03); g.setTargetAtTime(1, t + .05 + dur * .3, dur * .35); } },
   // ---- play a one-shot. x,y world position (undefined = centered/non-spatial)
   play(name, x, y, vol = 1, pitch = 1) {
+    if (CUE_LABEL[name] && !G.demo) soundCue(CUE_LABEL[name], x, y);
     if (!this.ok || G.settings.vMaster <= 0) return;
     const def = SFX[name]; if (!def || (G.demo && !def.ui)) return;
     const c = this.ctx, now = c.currentTime;
@@ -647,6 +648,16 @@ const A = {
     if (hpFrac < T.fx.lowHp && hpFrac > 0 && this.hbT <= 0) { this.hbT = lerp(.55, .95, hpFrac / T.fx.lowHp); this.play('heart'); }
   },
 };
+// ---- sound visualisation: every gameplay-relevant sound also produces a directional caption (accessibility)
+const CUE_LABEL = { wind: 'Wind-up', windSnipe: 'Sniper aiming', growl: 'Charge', fuse: 'Fuse lit', blink: 'Teleport', burrow: 'Burrowing', spawn: 'Enemy spawning', laser: 'Laser',
+  roar: 'Roar', whistle: 'Shell incoming', mortar: 'Mortar fired', slam: 'Slam', explode: 'Explosion', eshotBig: 'Heavy shot', snipe: 'Sniper shot', hurt: 'Hit taken', ready: 'Ability ready', empty: 'Out of ammo' };
+const CUES = [];
+const cuesOn = () => G.settings.soundViz || !A.ok || G.settings.vMaster <= 0 || G.settings.vSfx <= 0;
+function soundCue(label, x, y) {
+  if (!cuesOn() || G.state !== 'play') return;
+  for (const c of CUES) if (c.label === label && c.t > .8 && (x === undefined || hypot((c.x || 0) - x, (c.y || 0) - y) < 160)) { c.t = 1.2; c.x = x; c.y = y; c.n++; return; }
+  if (CUES.length >= 8) CUES.shift(); CUES.push({ label, x, y, t: 1.2, n: 1 });
+}
 // ---- synthesis helpers --------------------------------------------------------------------
 function _o(out, type, f0, f1, t, dur, peak, att = .002, sweep = dur) {
   const c = A.ctx, o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t);
@@ -1901,7 +1912,7 @@ function updatePlayer(dt) {
   // weapons / abilities / actives
   updateWeapons(p, dt);
   if ((IN.take('ability') || (G.bot && BOT.ability)) && p.abilityCd <= 0) { BOT.ability = false; useAbility(p); p.abilityCd = ch.cd; }
-  else if (p.abilityCd > 0) { const was = p.abilityCd; p.abilityCd -= dt; if (was > 0 && p.abilityCd <= 0) A.play('ready'); }
+  else if (p.abilityCd > 0) { const was = p.abilityCd; p.abilityCd -= dt; if (was > 0 && p.abilityCd <= 0) { A.play('ready'); p.readyFlash = 1; ring(p.x, p.y, 26, ci(p.color), .35, 2); } }
   for (let i = 0; i < 2; i++) { const a = run.actives[i]; if (!a) continue; if (a.cd > 0) a.cd -= dt; if (IN.take(i ? 'act2' : 'act1') && a.cd <= 0) { useActive(p, a); } }
   if (IN.take('swap') && run.weapons.length > 1) swapWeapon(p);
   if (IN.take('interact')) interact(p);
@@ -1974,7 +1985,7 @@ function hurtEnemy(e, dmg, kind, crit = false, kx = 0, ky = 0) {
   if (e.poison > 0) dmg *= 1 + B.corrode * e.poison;
   if (e.buffT > 0) dmg *= 1 - T.E.warden.buffDef;
   if (kind & DMG.SHOCK && e.poison > 0 && B.syn.electrolysis) dmg *= 1.5;
-  if (e.armor && !(kind & DMG.DOT)) { const d0 = dmg; dmg = max(dmg * .25, dmg - e.armor); if (d0 - dmg > 1 && rnd() < .3) A.play('armor', e.x, e.y, .4); }
+  if (e.armor && !(kind & DMG.DOT)) { const d0 = dmg; dmg = max(dmg * .25, dmg - e.armor); if (d0 - dmg > 1) { if (rnd() < .3) A.play('armor', e.x, e.y, .4); emit(PK.SPARK, e.x + rr(-e.r, e.r) * .6, e.y + rr(-e.r, e.r) * .6, rr(-140, 140), rr(-140, 140), .15, 2.5, C_WHITE); } }
   if (e.shield > 0) { const a = min(e.shield, dmg); e.shield -= a; dmg -= a; e.shieldT = T.elite.shielded.regen; if (e.shield <= 0) { ring(e.x, e.y, e.r * 1.6, ci('#58a8ff'), .3, 3); A.play('shatter', e.x, e.y, .5, 1.3); } if (dmg <= 0) return a; }
   e.hp -= dmg; G.run.stats.dmgDealt += dmg; e.lastHitT = G.time;
   if (!(kind & DMG.DOT)) { e.flash = .07; e.squash = .25; }
@@ -2787,7 +2798,7 @@ const TAC = {
     this.healers = healers; this.healer = healer; this.tank = tank; this.packSize = staged;
     // pack rush: enough staged melee or they've waited long enough (faster if the player is turtling)
     if (this.rushing && G.time > this.rushUntil) { this.rushing = false; this.waitStart = G.time; }
-    if (!this.rushing && staged > 0 && (staged >= T.ai.rushPack || G.time - this.waitStart > T.ai.rushWait * (this.flush ? .5 : 1))) { this.rushing = true; this.rushUntil = G.time + 3.2; if (staged >= 3) A.play('growl', this.centroid.x, this.centroid.y, .3, 2); }
+    if (!this.rushing && staged > 0 && (staged >= T.ai.rushPack || G.time - this.waitStart > T.ai.rushWait * (this.flush ? .5 : 1))) { this.rushing = true; this.rushUntil = G.time + 3.2; for (const e of E) if (!e.dead && e.def.b === 'swarm' && e.dist < 400) { e.flash = .12; ring(e.x, e.y, e.r * 3, ci('#ff2a4a'), .4, 2); } wtext(this.centroid.x, this.centroid.y - 20, 'RUSH!', '#ff4d6d', 11, .9, -30); if (staged >= 3) A.play('growl', this.centroid.x, this.centroid.y, .3, 2); }
     if (!staged && !this.rushing) this.waitStart = G.time;
     // roles: ranged units nearest the front pin, the rest flank left/right (pincer when kiting)
     const ranged = []; for (const e of E) if (!e.dead && e.spawnT <= 0 && (e.def.b === 'gunner' || e.def.b === 'wisp')) ranged.push(e);
@@ -3095,7 +3106,7 @@ function updateWeapons(p, dt) {
   if (d.id === 'minigun') { w.spin = clamp(w.spin + (held ? dt / d.spin : -dt / d.spin * 1.5), 0, 1); A.loop('spin', w.spin > .02, w.spin); }
   const rate = (d.id === 'minigun' ? lerp(d.rateMin, d.rate, w.spin) : d.rate) * rateMul(p);
   if (held && w.cd <= 0 && w.reloadT <= 0) {
-    if (w.ammo <= 0) { if (d.k === 'orbit') { w.cd = .2; } else { startReload(w, p); if (w.reloadT <= 0) A.play('empty', p.x, p.y); w.cd = .25; } }
+    if (w.ammo <= 0) { if (d.k === 'orbit') { w.cd = .2; } else { startReload(w, p); if (w.reloadT <= 0) A.play('empty', p.x, p.y); w.cd = .25; } if (w.reloadT <= 0 && (p.emptyT || 0) < G.time) { p.emptyT = G.time + 1; wtext(p.x, p.y - 20, 'EMPTY', '#ff8a2b', 9, .6); } }
     else {
       if (d.k === 'rail') fireRail(p, w); else if (d.k === 'arc') fireArc(p, w); else if (d.k === 'orbit') fireBlade(p, w); else fireGun(p, w);
       if (!od || d.k === 'orbit') w.ammo--;
@@ -3419,7 +3430,7 @@ function drawHUD(dt) {
     // letterbox during focus moments
     const lb = G.cam.focusT > 0 ? min(1, G.cam.focusT * 2) : 0; if (lb > 0) { c.fillStyle = '#000'; c.fillRect(0, 0, W, H * .09 * lb); c.fillRect(0, H - H * .09 * lb, W, H * .09 * lb); }
     else {
-      hudVitals(c, p, run, dt); hudWeapon(c, p, run, W, H); hudMinimap(c, run, W); hudTop(c, run, W, H); hudThreats(c, W, H);
+      hudVitals(c, p, run, dt); hudWeapon(c, p, run, W, H); hudMinimap(c, run, W); hudTop(c, run, W, H); hudThreats(c, W, H); hudCues(c, p, W, H, dt);
       if (run.combo >= 3) { const x = W - 30, y = H * .42, f = run.comboT / T.player.comboTime; c.textAlign = 'right'; c.font = `900 ${28 + min(20, run.combo * .3)}px Segoe UI,Arial`; c.fillStyle = '#ffe23a'; c.shadowColor = '#ffe23a'; c.shadowBlur = 12;
         c.fillText(run.combo + '×', x, y); c.shadowBlur = 0; c.font = '700 10px ui-monospace,monospace'; c.fillStyle = '#c8b860'; c.fillText('COMBO', x, y + 24); c.fillStyle = '#ffe23a'; c.fillRect(x - 80 * f, y + 34, 80 * f, 3); }
       hudCrosshair(c, p);
@@ -3428,9 +3439,24 @@ function drawHUD(dt) {
   if (G.debug.fps || G.debug.ai || G.debug.stress) hudDebug(c, W, H);
 }
 function hudBar(c, x, y, w, h, f, col, bg = 'rgba(255,255,255,.1)') { c.fillStyle = bg; c.fillRect(x, y, w, h); c.fillStyle = col; c.fillRect(x, y, w * clamp(f, 0, 1), h); }
+function hudCues(c, p, W, H, dt) {
+  const px = toScreenX(p.x, p.y), py = toScreenY(p.x, p.y); c.textAlign = 'center'; c.textBaseline = 'middle';
+  for (let i = CUES.length - 1; i >= 0; i--) {
+    const q = CUES[i]; q.t -= dt; if (q.t <= 0) { CUES.splice(i, 1); continue; } const a = min(1, q.t * 2), lbl = q.label + (q.n > 1 ? ' ×' + q.n : '');
+    c.globalAlpha = a; c.font = '700 12px ui-monospace,monospace';
+    if (q.x === undefined) { c.fillStyle = 'rgba(0,0,0,.6)'; const w = c.measureText(lbl).width + 16; c.fillRect(W / 2 - w / 2, H - 96 - i * 20, w, 18); c.fillStyle = '#ffe23a'; c.fillText('◉ ' + lbl, W / 2, H - 87 - i * 20); continue; }
+    const sx = toScreenX(q.x, q.y), sy = toScreenY(q.x, q.y), on = sx > 20 && sx < W - 20 && sy > 20 && sy < H - 20;
+    if (on) { const r = 14 + (1.2 - q.t) * 30; c.strokeStyle = '#ffe23a'; c.lineWidth = 2; c.beginPath(); c.arc(sx, sy, r, 0, TAU); c.stroke(); }
+    const ang = atan2(sy - py, sx - px), d = min(130, max(70, hypot(sx - px, sy - py) * .5)), lx = px + cos(ang) * d, ly = py + sin(ang) * d, w = c.measureText(lbl).width + 26;
+    c.fillStyle = 'rgba(0,0,0,.65)'; c.fillRect(lx - w / 2, ly - 10, w, 20); c.fillStyle = '#ffe23a'; c.fillText(lbl, lx + 6, ly);
+    c.save(); c.translate(lx - w / 2 + 9, ly); c.rotate(ang); c.beginPath(); c.moveTo(6, 0); c.lineTo(-4, 5); c.lineTo(-4, -5); c.closePath(); c.fill(); c.restore();
+  }
+  c.globalAlpha = 1;
+}
 function hudVitals(c, p, run, dt) {
   const x = 22, y = 22, w = 240, h = 16, f = p.hp / p.maxHp; HUDS.hpGhost = max(f, HUDS.hpGhost - dt * .35);
   c.fillStyle = 'rgba(0,0,0,.5)'; c.fillRect(x - 4, y - 4, w + 8, h + 8);
+  if (f < T.fx.lowHp) { const beat = pow(max(0, sin(G.rt * 7.5)), 8); c.strokeStyle = `rgba(255,40,70,${.4 + .6 * beat})`; c.lineWidth = 2 + beat * 3; c.strokeRect(x - 5, y - 5, w + 10, h + 10); } // visual heartbeat
   hudBar(c, x, y, w, h, HUDS.hpGhost, 'rgba(255,255,255,.55)', 'rgba(255,40,70,.12)');
   const g = c.createLinearGradient(x, 0, x + w, 0); g.addColorStop(0, f < .3 ? '#ff2a4a' : '#ff4a6a'); g.addColorStop(1, f < .3 ? '#ff6a3a' : '#ff8ab0'); c.fillStyle = g; c.fillRect(x, y, w * f, h);
   if (p.shieldMax) hudBar(c, x, y + h - 4, w, 4, p.shield / p.shieldMax, '#5dff8a', 'rgba(0,0,0,0)');
@@ -3446,6 +3472,7 @@ function hudVitals(c, p, run, dt) {
   items.forEach((it, i) => { const cx = x + 20 + i * 52, cy = y + h + 46, r = 18, ready = it.f >= 1;
     c.fillStyle = 'rgba(0,0,0,.55)'; c.beginPath(); c.arc(cx, cy, r + 3, 0, TAU); c.fill();
     c.strokeStyle = ready ? it.col : 'rgba(255,255,255,.2)'; c.lineWidth = 3; c.beginPath(); c.arc(cx, cy, r, -PI / 2, -PI / 2 + TAU * clamp(it.f, 0, 1)); c.stroke();
+    if (ready && i === 0 && p.readyFlash > 0) { const f = p.readyFlash; c.strokeStyle = it.col; c.lineWidth = 3; c.globalAlpha = f; c.beginPath(); c.arc(cx, cy, r + (1 - f) * 18, 0, TAU); c.stroke(); c.globalAlpha = 1; p.readyFlash = max(0, f - dt * 1.5); }
     if (ready) { c.shadowColor = it.col; c.shadowBlur = 10; c.fillStyle = it.col; c.beginPath(); c.arc(cx, cy, 6, 0, TAU); c.fill(); c.shadowBlur = 0; }
     c.fillStyle = '#c8d4ea'; c.font = '700 9px ui-monospace,monospace'; c.textAlign = 'center'; c.fillText(bindLabel(it.k[IN.device === 'pad' ? 2 : 0] || it.k[0]), cx, cy + r + 10); });
   // gold
@@ -3580,7 +3607,7 @@ function settingsScreen(back, tab = 'audio') {
   const tg = (k, lab) => `<label>${lab}</label><span>${UI.btn(s[k] ? 'On' : 'Off', () => { s[k] = !s[k]; applySettings(); settingsScreen(back, tab); }, s[k] ? 'pri sm' : 'sm')}</span><span></span>`;
   let body = '';
   if (tab === 'audio') body = `<div class="set">${sl('vMaster', 'Master volume', 0, 1, .05)}${sl('vSfx', 'Effects', 0, 1, .05)}${sl('vMusic', 'Music', 0, 1, .05)}${sl('vUi', 'Interface', 0, 1, .05)}</div>`;
-  if (tab === 'video') body = `<div class="set">${sl('shake', 'Screen shake', 0, 1.5, .05)}${tg('reducedMotion', 'Reduced motion')}${tg('flashReduce', 'Flash reduction')}${tg('dmgNumbers', 'Damage numbers')}${tg('hitstop', 'Hitstop')}
+  if (tab === 'video') body = `<p class="dim" style="font-size:12px;margin-bottom:10px">Every gameplay sound has a visual cue. "Visualize sound cues" adds directional captions and turns on automatically when sound is muted.</p><div class="set">${sl('shake', 'Screen shake', 0, 1.5, .05)}${tg('soundViz', 'Visualize sound cues')}${tg('reducedMotion', 'Reduced motion')}${tg('flashReduce', 'Flash reduction')}${tg('dmgNumbers', 'Damage numbers')}${tg('hitstop', 'Hitstop')}
     ${sl('bloom', 'Bloom', 0, 1.5, .05)}${tg('lighting', 'Dynamic lighting')}${tg('crt', 'CRT scanlines')}${sl('particles', 'Particle density', .25, 1.5, .05)}${sl('renderScale', 'Render scale', .5, 1, .05)}
     <label>Bullet palette</label><select data-set="palette">${Object.keys(BPAL).map(k => `<option ${s.palette === k ? 'selected' : ''} value="${k}">${{ default: 'Default', deutan: 'Deuteranopia', protan: 'Protanopia', tritan: 'Tritanopia' }[k]}</option>`).join('')}</select><span></span></div>`;
   if (tab === 'game') body = `<div class="set">${sl('gameSpeed', 'Game speed', .5, 1.2, .05)}${tg('aimAssist', 'Gamepad aim assist')}${tg('assist', 'Assist mode (−50% damage taken)')}${tg('fps', 'FPS overlay')}${tg('debug', 'AI debug overlay (F4)')}</div>
@@ -3686,7 +3713,7 @@ function summaryScreen(win, shards, newAch) {
 // =====================================================================================
 const SAVE_KEY = 'shatterline_v1';
 const DEFAULT_SETTINGS = { vMaster: .8, vSfx: .9, vMusic: .55, vUi: .7, shake: 1, reducedMotion: false, flashReduce: false, dmgNumbers: true, hitstop: true, bloom: .9, lighting: true, crt: false,
-  particles: 1, renderScale: 1, palette: 'default', gameSpeed: 1, aimAssist: true, assist: false, fps: false, debug: false };
+  particles: 1, renderScale: 1, palette: 'default', gameSpeed: 1, aimAssist: true, assist: false, fps: false, debug: false, soundViz: false };
 function defaultMeta() { return { shards: 0, unlocked: {}, boosts: {}, ach: {}, codex: { enemy: {}, weapon: {}, upg: {}, syn: {}, boss: {} }, stats: { runs: 0, wins: 0, kills: 0, best: 0, winChars: {} },
   history: [], settings: Object.assign({}, DEFAULT_SETTINGS), binds: null, heatUnlocked: false, maxHeat: 0, lastChar: 'kestrel', lastHeat: 0 }; }
 function load() {

@@ -3,7 +3,7 @@
 // =====================================================================================
 const SAVE_KEY = 'shatterline_v1';
 const DEFAULT_SETTINGS = { vMaster: .8, vSfx: .9, vMusic: .55, vUi: .7, shake: 1, reducedMotion: false, flashReduce: false, dmgNumbers: true, hitstop: true, bloom: .9, lighting: true, crt: false,
-  particles: 1, renderScale: 1, palette: 'default', gameSpeed: 1, aimAssist: true, assist: false, fps: false, debug: false };
+  particles: 1, renderScale: 1, palette: 'default', gameSpeed: 1, aimAssist: true, assist: false, fps: false, debug: false, soundViz: false };
 function defaultMeta() { return { shards: 0, unlocked: {}, boosts: {}, ach: {}, codex: { enemy: {}, weapon: {}, upg: {}, syn: {}, boss: {} }, stats: { runs: 0, wins: 0, kills: 0, best: 0, winChars: {} },
   history: [], settings: Object.assign({}, DEFAULT_SETTINGS), binds: null, heatUnlocked: false, maxHeat: 0, lastChar: 'kestrel', lastHeat: 0 }; }
 function load() {
