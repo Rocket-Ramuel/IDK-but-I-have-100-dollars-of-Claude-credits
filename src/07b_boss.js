@@ -132,7 +132,7 @@ const BOSS = {
   spawn(id) {
     const c = arenaC(), d = T.boss[id], e = spawnEnemy('jugg', c.x, c.y - 120, { noTele: true, noCodex: true });
     e.boss = true; e.bossId = id; e.def = Object.assign({}, T.E.jugg, { n: d.n, b: 'boss_' + id, cost: 0 }); e.brain = BRAINS['boss_' + id]; e.r = d.r; e.col = d.col; e.mass = 50; e.armor = 0;
-    e.maxHp = e.hp = d.hp * (G.run.heat > 6 ? 1.25 : 1) * (1 + B.enemyHp); e.phase = 0; e.introT = 2.6; e.gen = null; e.waitT = 1; e.bdmg = 14 * [1, 1.15, 1.3, 1.45][G.run.biome]; G.enemyScaleDmg = 1;
+    e.maxHp = e.hp = d.hp * (G.run.heat > 6 ? 1.25 : 1) * (1 + B.enemyHp); e.phase = 0; e.introT = 2.6; e.gen = null; e.waitT = 1; e.bdmg = 11 * [1, 1.15, 1.3, 1.45][G.run.biome]; G.enemyScaleDmg = [.8, .9, 1, 1.1][G.run.biome];
     G.boss = e; G.cam.focus = e; G.cam.focusT = 2.4; A.play('roar', e.x, e.y); A.duck(.6, 1.5); MUS.setTheme(G.run.biome, true); MUS.stinger('boss'); MUS.setIntensity(4);
     UI.bossIntro(d.n, d.t); codexSee('boss', id); LASERS.length = 0; VINES.length = 0; return e;
   },

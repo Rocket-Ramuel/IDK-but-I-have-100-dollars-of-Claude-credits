@@ -311,7 +311,7 @@ function explode(x, y, r, dmg, team, src, small = false) {
       if (B.syn.cluster && !small) for (let i = 0; i < 3; i++) { const b = fragBullet(x, y, rnd() * TAU, 0, 'Bomblet'); b.explode = 30; b.expDmg = 15 * expMul(); b.life = .25 + rnd() * .2; b.shape = 6; b.isFrag = true; b.split = 0; }
     }
   }
-  if (team !== 0) { const p = G.player; if (p && !p.dead && dist2(x, y, p.x, p.y) < (r + p.r * .5) ** 2) hurtPlayer(dmg, src, x, y); }
+  if (team !== 0) { const p = G.player; if (p && !p.dead && dist2(x, y, p.x, p.y) < (r + p.r * .5) ** 2) hurtPlayer(team === 2 ? min(dmg, T.room.selfBlast) : dmg, src, x, y); }
   // cover + barrels
   const room = G.room, coverDmg = B && (B.expDmg > 0) ? dmg * 3 : dmg * .8, tr = ceil(r / TS);
   for (let j = -tr; j <= tr; j++) for (let i = -tr; i <= tr; i++) { const tx = floor(x / TS) + i, ty = floor(y / TS) + j; if (tx < 0 || ty < 0 || tx >= room.w || ty >= room.h) continue;
@@ -554,6 +554,8 @@ function simTick(dt) {
   run.stats.time += dt; if (run.comboT > 0 && (run.comboT -= dt) <= 0) run.combo = 0;
   G.enemyTS = p.buffs && p.buffs.warp > 0 ? T.ACT.warp.scale : 1;
   if (p.buffs.warp > 0) p.buffs.warp -= dt;
+  // intensity zoom: punch in slightly during peaks, bosses and kill streaks
+  G.cam.zt = 1 + (G.boss ? .04 : 0) + (DIRECTOR.active && DIRECTOR.phase === 1 ? T.view.zoomIntense : 0) + min(.04, run.combo * .002) + (G.cam.focusT > 0 ? .08 : 0);
   if (G.bot) botThink(dt);
   updatePlayer(dt);
   G.grid.build(G.enemies); G.qpad = G.boss ? 56 : 28;
@@ -569,6 +571,7 @@ function simTick(dt) {
   ROOMS.update(dt);
   // sweep dead enemies
   const E = G.enemies; for (let i = E.length - 1; i >= 0; i--) if (E[i].dead) { EPOOL.push(E[i]); E[i] = E[E.length - 1]; E.pop(); }
+  G.alive = E.length;
   A.heartbeat(dt, p.dead ? 1 : p.hp / p.maxHp);
 }
 function hazardsOnEnemies(dt) {

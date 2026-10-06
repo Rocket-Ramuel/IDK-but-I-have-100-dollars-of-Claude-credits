@@ -126,7 +126,7 @@ const G = {
   state: 'boot', time: 0, rt: 0, tick: 0, timeScale: 1, tsTarget: 1, tsTimer: 0, hitstop: 0, enemyTS: 1, paused: false,
   run: null, room: null, player: null, enemies: [], bullets: [], ebullets: [], pickups: [], props: [], allies: [], zones: [], fxq: [],
   grid: new Grid(64, 2048), cam: { x: 0, y: 0, px: 0, py: 0, zoom: 1, zt: 1, trauma: 0, sx: 0, sy: 0, rot: 0, focus: null, focusT: 0 },
-  settings: null, meta: null, qpad: 28, debug: { fps: false, ai: false, flow: false, hit: false, stress: false }, bot: false,
+  settings: null, meta: null, qpad: 28, alive: 0, debug: { fps: false, ai: false, flow: false, hit: false, stress: false }, bot: false,
   stats: { frameMs: 0, simMs: 0, renderMs: 0, fps: 60, ticks: 0 },
 };
 const STEP = 1 / T.sim.hz;

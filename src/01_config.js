@@ -68,7 +68,7 @@ const T = {
     names: { vampiric: 'Vampiric', hasted: 'Hasted', splitting: 'Splitting', shielded: 'Shielded', volatile: 'Volatile', reflective: 'Reflective' },
   },
   boss: {
-    prism: { n: 'PRISM WARDEN', t: 'Keeper of the Neon Ruins', hp: 3000, r: 40, col: '#ff2bd6' },
+    prism: { n: 'PRISM WARDEN', t: 'Keeper of the Neon Ruins', hp: 2600, r: 40, col: '#ff2bd6' },
     forge: { n: 'CRYO FORGEMASTER', t: 'Tyrant of the Frozen Foundry', hp: 4300, r: 44, col: '#6fd8ff' },
     bloom: { n: 'MOTHER BLOOM', t: 'Heart of the Undergrowth', hp: 5400, r: 46, col: '#7dff3a' },
     arch: { n: 'THE ARCHITECT', t: 'Mind of the Core', hp: 7200, r: 42, col: '#ffcc33' },
@@ -96,12 +96,12 @@ const T = {
       haz: ['lava', 'elec', 'spike'], pool: { mite: 3, gunner: 3, ram: 2, tick: 2, wisp: 2, bulwark: 2, lancer: 2, lobber: 2, mender: 2, delver: 2, jugg: 2, gel: 2, brood: 1, warden: 2, phantom: 3, spire: 1 }, boss: 'arch' },
   ],
   haz: {
-    lava: { dps: 22, burn: 1 }, elec: { off: 2.6, warn: .85, on: 1.2, dmg: 18 }, spike: { warn: .5, up: .6, dmg: 16, rearm: 1.4 },
+    lava: { dps: 22, burn: 1 }, elec: { off: 2.6, warn: .85, on: 1.2, dmg: 12 }, spike: { warn: .5, up: .6, dmg: 12, rearm: 1.4 },
     acid: { stacks: 3 }, ice: { friction: .12 },
   },
   map: { layers: 6, minW: 2, maxW: 4,
     w: { combat: 50, elite: 12, shop: 9, treasure: 8, challenge: 7, rest: 7, event: 11 } },
-  room: { minW: 30, maxW: 46, minH: 22, maxH: 32, barrels: [1, 4], cover: [2, 6], hazards: [0, 3], coverHp: 60, barrelHp: 20, barrelDmg: 55, barrelR: 82 },
+  room: { minW: 30, maxW: 46, minH: 22, maxH: 32, barrels: [1, 4], cover: [2, 6], hazards: [0, 3], coverHp: 60, barrelHp: 20, barrelDmg: 55, barrelR: 82, selfBlast: 18 },
   // ---------------------------------------------------------------- economy
   gold: { enemy: 1.4, elite: 6, room: 12, boss: 80, startGold: 0 },
   price: { rar: [45, 80, 140, 220, 60], heal: 40, weapon: 90, active: 75, reroll: 25 },

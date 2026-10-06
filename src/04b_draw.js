@@ -229,18 +229,22 @@ function drawPlayerBullets(ctx, alpha) {
   }
   camXf();
 }
+// enemy orbs: cached sprites (dark rim for readability → colour → white core), one drawImage per bullet
+const _orb = new Map(), ORB_SS = 3;
+function orbSprite(col, r) {
+  const k = col + r; let c = _orb.get(k); if (c) return c; c = document.createElement('canvas'); const R2 = r + 2.5, s = ceil(R2 * 2 * ORB_SS); c.width = c.height = s; const x = c.getContext('2d'); x.scale(ORB_SS, ORB_SS);
+  x.fillStyle = '#0a0410'; x.beginPath(); x.arc(R2, R2, r + 2, 0, TAU); x.fill(); x.fillStyle = col; x.beginPath(); x.arc(R2, R2, r, 0, TAU); x.fill(); x.fillStyle = '#ffffff'; x.beginPath(); x.arc(R2, R2, r * .42, 0, TAU); x.fill();
+  _orb.set(k, c); return c;
+}
 function drawEnemyBullets(ctx, alpha) {
   const L = G.ebullets; if (!L.length) return; camXf(); const pal = bpal();
-  // pass 1: dark outline discs (readability over anything), pass 2: colour fill, pass 3: white core
-  for (let pass = 0; pass < 3; pass++) {
-    for (let c = 0; c < 2; c++) {
-      ctx.beginPath(); let any = false;
-      for (let i = 0; i < L.length; i++) { const b = L[i]; const bc = b.shape === 3 || b.shape === 1 ? 1 : 0; if (bc !== c || b.delay > 0) continue; const x = lerpX(b, alpha), y = lerpY(b, alpha); if (!inView(x, y, 20)) continue; any = true;
-        if (b.shape === 2) { const a = atan2(b.vy, b.vx), l = pass === 0 ? 9 : 7, w = pass === 0 ? b.r + 1.5 : pass === 1 ? b.r * .8 : b.r * .35; ctx.moveTo(x + cos(a) * l + cos(a + PI / 2) * 0, y + sin(a) * l);
-          ctx.lineTo(x + cos(a + PI / 2) * w, y + sin(a + PI / 2) * w); ctx.lineTo(x - cos(a) * l, y - sin(a) * l); ctx.lineTo(x - cos(a + PI / 2) * w, y - sin(a + PI / 2) * w); ctx.closePath(); continue; }
-        const r = pass === 0 ? b.r + 2 : pass === 1 ? b.r : b.r * .42; ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, TAU); }
-      if (!any) continue; ctx.fillStyle = pass === 0 ? '#0a0410' : pass === 1 ? pal[2 + c] : '#ffffff'; ctx.fill();
-    }
+  for (let i = 0; i < L.length; i++) {
+    const b = L[i]; if (b.delay > 0) continue; const x = lerpX(b, alpha), y = lerpY(b, alpha); if (!inView(x, y, 20)) continue; const col = pal[b.shape === 3 || b.shape === 1 ? 3 : 2];
+    if (b.shape === 2) { // needle: oriented diamond
+      const a = atan2(b.vy, b.vx), c = cos(a), s = sin(a); ctx.beginPath();
+      for (let pass = 0; pass < 3; pass++) { const l = pass === 0 ? 9 : 7, w = pass === 0 ? b.r + 1.5 : pass === 1 ? b.r * .8 : b.r * .35; ctx.beginPath(); ctx.moveTo(x + c * l, y + s * l); ctx.lineTo(x - s * w, y + c * w); ctx.lineTo(x - c * l, y - s * l); ctx.lineTo(x + s * w, y - c * w); ctx.closePath(); ctx.fillStyle = pass === 0 ? '#0a0410' : pass === 1 ? col : '#fff'; ctx.fill(); }
+      continue; }
+    const r = round(b.r * 2) / 2, img = orbSprite(col, r), h = r + 2.5; ctx.drawImage(img, x - h, y - h, h * 2, h * 2);
   }
 }
 function queueLights(alpha) {

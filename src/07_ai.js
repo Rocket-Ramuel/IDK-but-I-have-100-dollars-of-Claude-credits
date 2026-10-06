@@ -12,7 +12,7 @@ class Enemy {
     this.tx = 0; this.ty = 0; this.hasT = false; this.path = null; this.pathI = 0; this.pathReq = false; this.pathT = 0; this.strafe = rnd() < .5 ? 1 : -1; this.waitT = 0; this.kids = 0; this.parent = null;
     this.burrowed = false; this.size = 0; this.buffT = 0; this.shieldFlash = 0; this.noDrop = false; this.a = 0; this.b = 0; this.c = 0; this.d = 0; this.ax = 0; this.ay = 0; this.phase = 0; this.lastHitT = -9;
     this.envT = 0; this.healT = 0; this.healTarget = null; this.lungeT = 0; this.ally = null; this.contact = 0; this.lastLosT = 0; this.seenT = 0; this.lx = 0; this.ly = 0;
-    this.tl = null; this.sight = 0; this.alpha = 1; this.peek = 0; this.atkKind = ''; this.atkDur = 1; this.lockAng = false; this.onWall = null; this.dmgMul = 1; this.col = '#ffffff'; this.orbT = 0; this.bossId = ''; this.introT = 0; this.transT = 0; this.gen = null; this.waitT = 0; this.hold = 0; this.lift = 0; this.spin = 0; this.orbs = null; this.wind = 0; this.flood = null; this.floodQ = 0; this.shrink = 0; this.shrinkR = 0; this.lastAtk = ''; this.bdmg = 10;
+    this.hasted = false; this.vamp = false; this.tl = null; this.sight = 0; this.alpha = 1; this.peek = 0; this.atkKind = ''; this.atkDur = 1; this.lockAng = false; this.onWall = null; this.dmgMul = 1; this.col = '#ffffff'; this.orbT = 0; this.bossId = ''; this.introT = 0; this.transT = 0; this.gen = null; this.waitT = 0; this.hold = 0; this.lift = 0; this.spin = 0; this.orbs = null; this.wind = 0; this.flood = null; this.floodQ = 0; this.shrink = 0; this.shrinkR = 0; this.lastAtk = ''; this.bdmg = 10;
   }
 }
 const EPOOL = []; for (let i = 0; i < 400; i++) EPOOL.push(new Enemy());
@@ -34,12 +34,13 @@ function spawnEnemy(type, x, y, o = {}) {
 }
 function makeElite(e, mods) {
   const E2 = T.elite; e.elite = true; e.mods = mods; e.maxHp = e.hp = e.maxHp * E2.hpMul; e.r *= E2.rMul; e.mass *= 1.6;
+  e.hasted = mods.includes('hasted'); e.vamp = mods.includes('vampiric');
   if (mods.includes('shielded')) e.shield = e.shieldMax = e.maxHp * E2.shielded.frac;
   if (mods.includes('reflective')) e.reflectCd = E2.reflective.every;
 }
 function eSpeed(e) {
   let s = e.def.spd * (1 + (B ? B.enemySpd : 0)) * (G.run.heat > 8 ? 1.1 : 1);
-  if (e.mods && e.mods.includes('hasted')) s *= 1 + T.elite.hasted.spd; if (e.buffT > 0) s *= 1 + T.E.warden.buffSpd;
+  if (e.hasted) s *= 1 + T.elite.hasted.spd; if (e.buffT > 0) s *= 1 + T.E.warden.buffSpd;
   if (e.chill > 0) s *= max(.2, 1 - e.chill / T.ST.chillMax * T.ST.chillSlow * (1 + (B ? B.chillSlow : 0)));
   if (B && B.neuro && e.poison >= 8) s *= .7; return s;
 }
@@ -73,13 +74,13 @@ function updateEnemies(dt) {
     e.dvx = e.dvy = 0;
     if (!disabled) {
       if (e.atkPhase === 0) { e.thinkT -= dt; if (e.thinkT <= 0) { e.thinkT = (1 / T.ai.thinkHz) * (.8 + rnd() * .4); think(e); } }
-      e.actT += dt; if (e.cd > 0) e.cd -= dt * (e.mods && e.mods.includes('hasted') ? 1 + T.elite.hasted.rate : 1);
+      e.actT += dt; if (e.cd > 0) e.cd -= dt * (e.hasted ? 1 + T.elite.hasted.rate : 1);
       const act = e.brain.acts[e.act]; if (act) act.run(e, dt);
       if (e.atkPhase > 0) runAttack(e, dt);
     } else if (e.atkPhase > 0) endAttack(e);
     steerMove(e, dt, disabled);
     // contact damage
-    if (e.contact > 0 && !p.dead && dist2(e.x, e.y, p.x, p.y) < (e.r + p.r * .8) ** 2) { if (hurtPlayer(eDmg(e, e.contact), e.def.n, e.x, e.y)) { if (e.mods && e.mods.includes('vampiric')) e.hp = min(e.maxHp, e.hp + e.contact * T.elite.vampiric.heal * 3); e.contact = 0; } }
+    if (e.contact > 0 && !p.dead && dist2(e.x, e.y, p.x, p.y) < (e.r + p.r * .8) ** 2) { if (hurtPlayer(eDmg(e, e.contact), e.def.n, e.x, e.y)) { if (e.vamp) e.hp = min(e.maxHp, e.hp + e.contact * T.elite.vampiric.heal * 3); e.contact = 0; } }
   }
 }
 function think(e) {
@@ -91,10 +92,10 @@ function think(e) {
 function steerMove(e, dt, disabled) {
   const spd = eSpeed(e), grid = G.grid, L = grid.list, out = grid.out;
   let sx = 0, sy = 0; const sr = e.r * T.ai.sepR * TAC.spread + 4, n = grid.query(e.x, e.y, sr + 20);
-  for (let k = 0; k < n; k++) {
+  for (let k = 0, used = 0; k < n && used < 10; k++) {
     const o = L[out[k]]; if (o === e || o.dead || o.spawnT > 0 || o.burrowed || o.fly !== e.fly) continue;
     let dx = e.x - o.x, dy = e.y - o.y; const d2 = dx * dx + dy * dy, rs = (e.r + o.r) * T.ai.sepR * TAC.spread;
-    if (d2 > rs * rs || d2 < 1e-6) continue; const d = sqrt(d2); dx /= d; dy /= d; const push = 1 - d / rs; sx += dx * push; sy += dy * push;
+    if (d2 > rs * rs || d2 < 1e-6) continue; used++; const d = sqrt(d2); dx /= d; dy /= d; const push = 1 - d / rs; sx += dx * push; sy += dy * push;
     const hard = e.r + o.r; if (d < hard && !e.boss) { const c = (hard - d) * (o.boss ? 1 : .5); e.x += dx * c; e.y += dy * c; }
   }
   let dvx = e.dvx, dvy = e.dvy;
@@ -447,7 +448,7 @@ const DIRECTOR = {
       if (this.phaseT > D.relaxTime && this.stress < D.relaxStress || this.phaseT > D.relaxTime * 2.5 || alive === 0) { this.phase = 0; this.phaseT = 0; this.waveT = .3; }
     }
     MUS.setIntensity(this.phase === 1 ? 3 : this.phase === 0 ? (alive > 6 ? 2.6 : 2) : 1.4);
-    if (this.spent >= this.budget && alive === 0 && !G.enemies.some(e => !e.dead)) { this.active = false; }
+    if (this.spent >= this.budget && G.alive === 0) { this.active = false; }
   },
   pool() {
     const run = G.run, pool = Object.assign({}, T.BIO[run.biome].pool);

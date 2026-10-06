@@ -39,7 +39,7 @@ const out = process.env.OUT || path.join(__dirname, '..', 'shots'); fs.mkdirSync
       if (same === 25) { console.log('STUCK?', JSON.stringify(s)); await shot('stuck' + k);
         console.log(await page.evaluate(() => JSON.stringify({ dir: { a: SL.DIRECTOR.active, spent: SL.DIRECTOR.spent, budget: SL.DIRECTOR.budget, ph: SL.DIRECTOR.phase }, p: [SL.G.player.x|0, SL.G.player.y|0], open: SL.G.room.open, cleared: SL.G.room.cleared,
           en: SL.G.enemies.filter(e => !e.dead).map(e => ({ t: e.type, x: e.x|0, y: e.y|0, hp: e.hp|0, act: e.act, sp: e.spawnT, bur: e.burrowed, inv: e.inv, ph: e.atkPhase, tile: tileAt(e.x, e.y), los: e.los, boss: e.boss })) }))); }
-      if (s.state === 'summary') { await shot('summary'); break; }
+      if (s.state === 'summary') { await shot('summary'); console.log(await page.evaluate(() => JSON.stringify({ by: SL.G.run.killedBy, recap: SL.G.run.recap.map(r => r.src + ':' + r.dmg), ups: SL.G.run.upgrades.join(',') }))); break; }
       await page.waitForTimeout(30);
     }
   }

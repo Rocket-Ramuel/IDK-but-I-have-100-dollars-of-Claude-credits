@@ -63,9 +63,9 @@ const ROOMS = {
   update(dt) {
     const room = G.room, run = G.run; run.roomT += dt;
     updateLasers(dt * G.enemyTS); updateMortars(dt);
-    if (G.demo) { if (!DIRECTOR.active && !G.enemies.some(e => !e.dead)) { DIRECTOR.start(room); } return; }
+    if (G.demo) { if (!DIRECTOR.active && !G.alive) { DIRECTOR.start(room); } return; }
     if (room.cleared || G.player.dead) return;
-    const alive = G.enemies.some(e => !e.dead);
+    const alive = G.alive > 0;
     if (room.type === 'boss') { if (!G.boss && !G.corpse && !alive && run.roomT > 3) roomCleared(); return; }
     if (!DIRECTOR.active && !alive) roomCleared();
   },
@@ -177,10 +177,13 @@ function botThink(dt) {
   // dodge: repel from incoming bullets
   let danger = 0; for (const b of G.ebullets) { const dx = p.x - b.x, dy = p.y - b.y, d2 = dx * dx + dy * dy; if (d2 > 140 * 140) continue; const d = sqrt(d2), app = -(dx * b.vx + dy * b.vy) / (d * hypot(b.vx, b.vy) + 1e-3);
     if (app > .3) { const px = -b.vy, py = b.vx, s = sign(px * dx + py * dy) || 1, w = (1 - d / 140) * app * 2; mx += px / hypot(px, py) * s * w; my += py / hypot(px, py) * s * w; if (d < 40) danger++; } }
+  for (const l of LASERS) { const c = cos(l.ang), s = sin(l.ang), dx = p.x - l.x, dy = p.y - l.y, al = dx * c + dy * s, pe = dx * s - dy * c; // step out of beam lanes
+    if (al > 0 && al < l.len + 30 && abs(pe) < 70) { const k = sign(pe) || 1, w = 3 * (1 - abs(pe) / 70); mx += s * k * w; my += -c * k * w; if (abs(pe) < 24 && l.t > l.warn - .25) danger++; } }
+  for (const t of TELE) { if (t.type === 'line') { const c = cos(t.ang), s = sin(t.ang), dx = p.x - t.x, dy = p.y - t.y, al = dx * c + dy * s, pe = dx * s - dy * c; if (al > 0 && al < t.a && abs(pe) < t.b + 30) { const k = sign(pe) || 1; mx += s * k * 2; my += -c * k * 2; } } }
   for (const t of TELE) { const d = hypot(p.x - t.x, p.y - t.y); if (t.type === 'circle' && d < t.a + 20) { mx += (p.x - t.x) / (d + 1) * 2; my += (p.y - t.y) / (d + 1) * 2; } }
   if (tgt && !tgt.los && !tgt.fly) { BOT.pt = (BOT.pt || 0) - dt; if (!BOT.path || BOT.pt <= 0) { BOT.pt = .5; const e = { x: p.x, y: p.y }; PATH.solve(e, tgt.x, tgt.y); BOT.path = e.path; BOT.pi = 0; }
     if (BOT.path && BOT.pi * 2 < BOT.path.length) { const gx = BOT.path[BOT.pi * 2], gy = BOT.path[BOT.pi * 2 + 1]; if (dist2(p.x, p.y, gx, gy) < 24 * 24) BOT.pi++; const d = hypot(gx - p.x, gy - p.y) || 1; mx += (gx - p.x) / d * 1.2; my += (gy - p.y) / d * 1.2; } }
-  if (tgt) { const d = sqrt(bd), dx = tgt.x - p.x, dy = tgt.y - p.y, want = 200; const k = d < want ? -1 : d > want + 80 ? .7 : 0; mx += dx / d * k; my += dy / d * k; mx += -dy / d * .4; my += dx / d * .4;
+  if (tgt) { const wd = curWeapon(p).def, d = sqrt(bd), dx = tgt.x - p.x, dy = tgt.y - p.y, want = clamp((wd.range || wd.spd * wd.life * (wd.drag ? .45 : 1)) * .55, 70, 230); const k = d < want ? -1 : d > want + 80 ? .7 : 0; mx += dx / d * k; my += dy / d * k; mx += -dy / d * .4; my += dx / d * .4;
     const a = leadAim({ x: p.x, y: p.y }, p.x, p.y, 700); BOT.ax = tgt.x + (tgt.vx || 0) * .15; BOT.ay = tgt.y + (tgt.vy || 0) * .15; BOT.fire = tgt.los || d < 300; }
   else { BOT.fire = false; let gx = (room.exitDoor.x + 1) * TS, gy = TS * 1.5; if (hypot(p.x - gx, p.y - gy) < 30) gy = 0;
     const pk = G.pickups[0]; if (pk && !room.open) { gx = pk.x; gy = pk.y; }
@@ -188,6 +191,9 @@ function botThink(dt) {
     if (!losThick(p.x, p.y, gx, gy)) { BOT.pt = (BOT.pt || 0) - dt; if (!BOT.path || BOT.pt <= 0) { BOT.pt = .5; const e = { x: p.x, y: p.y }; PATH.solve(e, gx, gy); BOT.path = e.path; BOT.pi = 0; }
       if (BOT.path && BOT.pi * 2 < BOT.path.length) { gx = BOT.path[BOT.pi * 2]; gy = BOT.path[BOT.pi * 2 + 1]; if (dist2(p.x, p.y, gx, gy) < 24 * 24) BOT.pi++; } }
     const d = hypot(gx - p.x, gy - p.y) || 1; mx += (gx - p.x) / d; my += (gy - p.y) / d; }
+  const bad = h => h && (h.k === 'lava' || h.k === 'acid' || (h.k === 'elec' && h.st > 0) || (h.k === 'spike' && h.st > 0) || (h.k === 'elec' && (h.t % (T.haz.elec.off + T.haz.elec.warn + T.haz.elec.on)) > T.haz.elec.off - .6));
+  for (let k = 0; k < 8; k++) { const a = k / 8 * TAU, hx = p.x + cos(a) * 34, hy = p.y + sin(a) * 34; if (bad(hazardAt(hx, hy))) { mx -= cos(a) * 1.2; my -= sin(a) * 1.2; } }
+  if (bad(hazardAt(p.x, p.y))) { mx *= 1.5; my *= 1.5; }
   clearanceGrad(p.x, p.y); if (clearanceAt(p.x, p.y) <= 1) { mx += _fx * .8; my += _fy * .8; }
   const l = hypot(mx, my); BOT.mx = l > .1 ? mx / l : 0; BOT.my = l > .1 ? my / l : 0;
   if (danger > 0 && p.dashCharges > 0 && rnd() < .5) BOT.dash = true;

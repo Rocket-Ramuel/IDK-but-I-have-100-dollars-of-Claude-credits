@@ -146,7 +146,7 @@ function hudTop(c, run, W, H) {
   if (b && !b.dead && b.introT <= 0) { const w = min(620, W * .5), x = (W - w) / 2, y = 28, f = b.hp / b.maxHp; c.textAlign = 'center'; c.font = '800 13px Segoe UI,Arial'; c.fillStyle = '#fff'; c.fillText(T.boss[b.bossId].n, W / 2, y - 10);
     c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(x - 3, y - 3, w + 6, 16); hudBar(c, x, y, w, 10, f, b.col); c.fillStyle = '#000'; for (const k of [.66, .33]) c.fillRect(x + w * k - 1, y, 2, 10); return; }
   if (DIRECTOR.active && G.room.type === 'challenge') { c.textAlign = 'center'; c.font = '900 28px Segoe UI,Arial'; c.fillStyle = '#ff8a2b'; c.fillText(ceil(DIRECTOR.challengeT), W / 2, 34); return; }
-  const n = G.enemies.filter(e => !e.dead).length; if (!G.room.cleared && (n || DIRECTOR.active)) { c.textAlign = 'center'; c.font = '700 12px ui-monospace,monospace'; c.fillStyle = '#ff8ab0'; c.fillText(`◉ ${n}  ${['BUILD', 'PEAK', 'LULL'][DIRECTOR.phase]}`, W / 2, 26); }
+  const n = G.alive; if (!G.room.cleared && (n || DIRECTOR.active)) { c.textAlign = 'center'; c.font = '700 12px ui-monospace,monospace'; c.fillStyle = '#ff8ab0'; c.fillText(`◉ ${n}  ${['BUILD', 'PEAK', 'LULL'][DIRECTOR.phase]}`, W / 2, 26); }
   else if (G.room.open && G.room.type !== 'boss') { c.textAlign = 'center'; c.font = '700 12px ui-monospace,monospace'; c.fillStyle = '#50ffaa'; c.globalAlpha = .6 + .4 * sin(G.rt * 4); c.fillText('▲ EXIT OPEN ▲', W / 2, 26); c.globalAlpha = 1; }
 }
 function hudThreats(c, W, H) {
@@ -181,7 +181,7 @@ function hudDebug(c, W, H) {
 function titleScreen() {
   G.state = 'title'; document.body.classList.remove('play'); startDemo();
   const m = G.meta, daily = dailySeed();
-  UI.show(`<div class="title-wrap"><div class="logo">SHATTER<br>LINE</div><div class="sub">NEON ROGUELITE · ${m.stats.runs} RUNS · ${m.stats.wins} WINS</div>
+  UI.show(`<div class="title-bg"></div><div class="title-wrap"><div class="logo">SHATTER<br>LINE</div><div class="sub">NEON ROGUELITE · ${m.stats.runs} RUNS · ${m.stats.wins} WINS</div>
     <div class="menu">${UI.btn('Play', () => charSelect(), 'pri')}${UI.btn('Daily Run · ' + daily, () => charSelect({ daily: true }))}${UI.btn('Unlocks · ◆' + m.shards, () => unlocksScreen())}
     ${UI.btn('Codex', () => codexScreen())}${UI.btn('Achievements', () => achScreen())}${UI.btn('History', () => historyScreen())}${UI.btn('Settings', () => settingsScreen(titleScreen))}</div></div>
     <div class="foot">WASD move · Mouse aim · LMB fire · RMB ability · SPACE dash · Q/E actives · TAB build · ESC pause · Gamepad supported</div>`, null, 'title');

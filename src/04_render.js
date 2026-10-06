@@ -34,7 +34,7 @@ function updateCamera(dt, alpha) {
     let lx = (IN.wx - px) * T.view.lead, ly = (IN.wy - py) * T.view.lead; const l = hypot(lx, ly), lm = T.view.leadMax;
     if (l > lm) { lx *= lm / l; ly *= lm / l; }
     if (IN.padAim) { lx = cos(IN.aimAng) * lm * .7; ly = sin(IN.aimAng) * lm * .7; }
-    tx = px + lx + p.recX; ty = py + ly + p.recY;
+    tx = px + lx + p.recX; ty = py + ly + p.recY; if (G.demo) { tx = px - R.vw * .2; ty = py; }
   }
   const k = 1 - exp(-dt * T.view.follow * (c.focusT > 0 ? .35 : 1)); c.x = lerp(c.x, tx, k); c.y = lerp(c.y, ty, k);
   c.zoom = lerp(c.zoom, c.zt, 1 - exp(-dt * 2.5));
@@ -180,9 +180,9 @@ function drawTele(ctx) {
     const f = sat(t.t / t.dur), pulse = .55 + .45 * sin(G.rt * 30);
     ctx.strokeStyle = ctx.fillStyle = t.col; ctx.lineWidth = 1.6;
     if (t.type === 'circle') { // a = radius
-      xf(ctx, t.x, t.y, 0, 1, 1); ctx.globalAlpha = .12 + .1 * f; ctx.beginPath(); ctx.arc(0, 0, t.a, 0, TAU); ctx.fill();
-      ctx.globalAlpha = .45 + .4 * f * pulse; ctx.beginPath(); ctx.arc(0, 0, t.a, 0, TAU); ctx.stroke();
-      ctx.globalAlpha = .35; ctx.beginPath(); ctx.arc(0, 0, t.a * f, 0, TAU); ctx.fill();
+      xf(ctx, t.x, t.y, 0, 1, 1); ctx.globalAlpha = .06 + .06 * f; ctx.beginPath(); ctx.arc(0, 0, t.a, 0, TAU); ctx.fill();
+      ctx.globalAlpha = .5 + .45 * f * pulse; ctx.beginPath(); ctx.arc(0, 0, t.a, 0, TAU); ctx.stroke();
+      ctx.globalAlpha = .16; ctx.beginPath(); ctx.arc(0, 0, t.a * f, 0, TAU); ctx.fill();
     } else if (t.type === 'line') { // a = length, b = half width
       xf(ctx, t.x, t.y, t.ang, 1, 1); ctx.globalAlpha = .1 + .12 * f; ctx.fillRect(0, -t.b, t.a, t.b * 2);
       ctx.globalAlpha = .5 + .4 * f * pulse; ctx.strokeRect(0, -t.b, t.a, t.b * 2); ctx.globalAlpha = .35; ctx.fillRect(0, -t.b, t.a * f, t.b * 2);
