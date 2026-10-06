@@ -196,6 +196,7 @@ function botThink(dt) {
   if (bad(hazardAt(p.x, p.y))) { mx *= 1.5; my *= 1.5; }
   clearanceGrad(p.x, p.y); if (clearanceAt(p.x, p.y) <= 1) { mx += _fx * .8; my += _fy * .8; }
   const l = hypot(mx, my); BOT.mx = l > .1 ? mx / l : 0; BOT.my = l > .1 ? my / l : 0;
+  const cw = curWeapon(p); if (cw.def.k === 'bow' && cw.charge >= 1) BOT.fire = false;
   if (danger > 0 && p.dashCharges > 0 && rnd() < .5) BOT.dash = true;
   if (tgt && p.abilityCd <= 0 && sqrt(bd) < 260 && rnd() < .02) BOT.ability = true;
   if (!G.demo || true) { IN.wx = BOT.ax || p.x + 1; IN.wy = BOT.ay || p.y; }
@@ -231,6 +232,7 @@ function boot() {
   resize(); applySettings();
   const unlockAudio = () => { A.init(); MUS.setTheme(G.run ? G.run.biome : 0); };
   addEventListener('pointerdown', unlockAudio, { once: false }); addEventListener('keydown', unlockAudio, { once: false });
+  addEventListener('blur', () => { if (G.state === 'play' && !G.paused && !UI.screen && !G.bot) pauseMenu(); });
   titleScreen(); requestAnimationFrame(frame);
 }
 // debug / test hooks (used by tools/test.js)

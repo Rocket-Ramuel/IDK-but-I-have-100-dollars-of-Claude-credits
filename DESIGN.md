@@ -9,7 +9,8 @@ procedural art and synthesized audio.
 index.html        ← the game (generated, self-contained, open directly in a browser)
 src/*.js|html     ← source sections, concatenated in name order into index.html
 tools/build.js    ← `node tools/build.js` → index.html
-tools/test.js     ← Playwright smoke test + bot run + stress profile
+tools/test.js     ← Playwright smoke / turbo bot run / scene capture / stress profile
+tools/fuzz.js     ← exception fuzzing: every weapon, character, active, room, boss, all-upgrade build
 DESIGN.md / PROGRESS.md
 ```
 
@@ -51,8 +52,9 @@ vignette, CRT in one cheap shader; fallback to plain 2D canvas when WebGL is mis
 Scene order:
 1. background, floor (vector, per-frame Path2D cached per room), hazards (animated)
 2. decal canvas (room-sized, 0.5 px/unit, fades with `destination-out`)
-3. shadows, props, pickups, enemies, player (vector shapes, squash/stretch, white hit-flash)
+3. shadows, props, pickups
 4. **lightmap** (¼-res canvas: ambient fill + additive radial lights) composited with `multiply`
+4b. actors — enemies, allies, player (vector shapes, squash/stretch, white hit-flash) — drawn after lighting so they stay crisp
 5. emissive layer (`lighter`): bullets (sprite cache), beams, arcs, sparks, explosions, telegraphs
 6. world text (damage numbers)
 
